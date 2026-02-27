@@ -1,0 +1,157 @@
+<?php
+
+use App\Models\Department;
+use App\Models\Role;
+use App\Models\Team;
+use App\Models\User;
+use Illuminate\Support\Facades\Auth;
+
+uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
+
+beforeEach(function () {
+    $this->adminRole = Role::factory()->create(['slug' => 'admin']);
+    $this->admin = User::factory()->create();
+    $this->admin->roles()->attach($this->adminRole);
+    $this->adminToken = Auth::guard('api')->tokenById($this->admin->id);
+
+    $this->user = User::factory()->create();
+    $this->userToken = Auth::guard('api')->tokenById($this->user->id);
+
+    $this->department = Department::factory()->create();
+});
+
+test('admin can list teams', function () {
+    Team::factory(3)->create(['department_id' => $this->department->id]);
+
+    $response = $this->getJson('/api/v1/teams', [
+        'Authorization' => "Bearer $this->adminToken",
+    ]);
+
+    $response->assertSuccessful()
+        ->assertJsonCount(3, 'data');
+});
+
+test('admin can show team', function () {
+    $team = Team::factory()->create(['department_id' => $this->department->id]);
+
+    $response = $this->getJson("/api/v1/teams/{$team->id}", [
+        'Authorization' => "Bearer $this->adminToken",
+    ]);
+
+    $response->assertSuccessful()
+        ->assertJsonPath('data.id', $team->id)
+        ->assertJsonStructure(['data' => ['id', 'name', 'department']]);
+});
+
+test('admin can create team', function () {
+    $response = $this->postJson('/api/v1/teams', [
+        'name' => 'Backend Team',
+        'department_id' => $this->department->id,
+    ], [
+        'Authorization' => "Bearer $this->adminToken",
+    ]);
+
+    $response->assertCreated()
+        ->assertJsonPath('data.name', 'Backend Team');
+});
+
+test('non-admin cannot create team', function () {
+    $response = $this->postJson('/api/v1/teams', [
+        'name' => 'Backend Team',
+        'department_id' => $this->department->id,
+    ], [
+        'Authorization' => "Bearer $this->userToken",
+    ]);
+
+    $response->assertForbidden();
+});
+
+test('admin can update team', function () {
+    $team = Team::factory()->create(['department_id' => $this->department->id]);
+
+    $response = $this->putJson("/api/v1/teams/{$team->id}", [
+        'name' => 'Frontend Team',
+    ], [
+        'Authorization' => "Bearer $this->adminToken",
+    ]);
+
+    $response->assertSuccessful()
+        ->assertJsonPath('data.name', 'Frontend Team');
+});
+
+test('non-admin cannot update team', function () {
+    $team = Team::factory()->create(['department_id' => $this->department->id]);
+
+    $response = $this->putJson("/api/v1/teams/{$team->id}", [
+        'name' => 'Frontend Team',
+    ], [
+        'Authorization' => "Bearer $this->userToken",
+    ]);
+
+    $response->assertForbidden();
+});
+
+test('admin can soft-delete team', function () {
+    $team = Team::factory()->create(['department_id' => $this->department->id]);
+
+    $response = $this->deleteJson("/api/v1/teams/{$team->id}", [], [
+        'Authorization' => "Bearer $this->adminToken",
+    ]);
+
+    $response->assertSuccessful();
+    $this->assertSoftDeleted('teams', ['id' => $team->id]);
+});
+
+test('non-admin cannot delete team', function () {
+    $team = Team::factory()->create(['department_id' => $this->department->id]);
+
+    $response = $this->deleteJson("/api/v1/teams/{$team->id}", [], [
+        'Authorization' => "Bearer $this->userToken",
+    ]);
+
+    $response->assertForbidden();
+});
+
+test('team validation', function (array $data, array $errors) {
+    /** @var TestCase $this */
+    $response = $this->postJson('/api/v1/teams', $data, [
+        'Authorization' => "Bearer $this->adminToken",
+    ]);
+
+    $response->assertUnprocessable()
+        ->assertJsonValidationErrors($errors);
+})->with([
+    'missing name' => [
+        fn () => ['department_id' => Department::factory()->create()->id],
+        ['name'],
+    ],
+    'missing department_id' => [
+        ['name' => 'Test Team'],
+        ['department_id'],
+    ],
+    'invalid department_id' => [
+        ['name' => 'Test Team', 'department_id' => 999],
+        ['department_id'],
+    ],
+]);
+
+test('unauthenticated user cannot access team routes', function (string $method, string $uri) {
+    /** @var TestCase $this */
+    $response = $this->json($method, $uri);
+
+    $response->assertUnauthorized();
+})->with([
+    'index' => ['GET', '/api/v1/teams'],
+    'store' => ['POST', '/api/v1/teams'],
+    'show' => ['GET', '/api/v1/teams/1'],
+    'update' => ['PUT', '/api/v1/teams/1'],
+    'destroy' => ['DELETE', '/api/v1/teams/1'],
+]);
+
+test('show non-existent team returns 404', function () {
+    $response = $this->getJson('/api/v1/teams/999', [
+        'Authorization' => "Bearer $this->adminToken",
+    ]);
+
+    $response->assertNotFound();
+});

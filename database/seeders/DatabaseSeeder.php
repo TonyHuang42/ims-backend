@@ -2,24 +2,39 @@
 
 namespace Database\Seeders;
 
+use App\Models\Department;
+use App\Models\Team;
 use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
-    use WithoutModelEvents;
-
     /**
      * Seed the application's database.
      */
     public function run(): void
     {
-        // User::factory(10)->create();
-
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+        $this->call([
+            RoleSeeder::class,
         ]);
+
+        // Create an admin user
+        $admin = User::factory()->create([
+            'name' => 'Admin User',
+            'email' => 'admin@example.com',
+        ]);
+        $admin->roles()->attach(\App\Models\Role::where('slug', 'admin')->first());
+
+        // Create sample departments, teams, and users
+        Department::factory(3)->create()->each(function ($dept) {
+            Team::factory(2)->create(['department_id' => $dept->id])->each(function ($team) use ($dept) {
+                User::factory(5)->create([
+                    'department_id' => $dept->id,
+                    'team_id' => $team->id,
+                ])->each(function ($user) {
+                    $user->roles()->attach(\App\Models\Role::where('slug', 'user')->first());
+                });
+            });
+        });
     }
 }

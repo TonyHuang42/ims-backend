@@ -2,6 +2,8 @@
 
 namespace Database\Factories;
 
+use App\Models\Department;
+use App\Models\Team;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -29,6 +31,9 @@ class UserFactory extends Factory
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
+            'department_id' => null,
+            'team_id' => null,
+            'is_active' => true,
         ];
     }
 
@@ -40,5 +45,17 @@ class UserFactory extends Factory
         return $this->state(fn (array $attributes) => [
             'email_verified_at' => null,
         ]);
+    }
+
+    public function withIdentity(): static
+    {
+        return $this->state(function (array $attributes) {
+            $department = Department::factory()->create();
+
+            return [
+                'department_id' => $department->id,
+                'team_id' => Team::factory()->create(['department_id' => $department->id])->id,
+            ];
+        });
     }
 }
