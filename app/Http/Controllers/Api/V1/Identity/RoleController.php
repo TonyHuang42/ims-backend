@@ -7,15 +7,31 @@ use App\Http\Requests\Identity\StoreRoleRequest;
 use App\Http\Requests\Identity\UpdateRoleRequest;
 use App\Http\Resources\Identity\RoleResource;
 use App\Models\Role;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Auth;
 
 class RoleController extends Controller
 {
-    public function index(): AnonymousResourceCollection
+    public function index(Request $request): AnonymousResourceCollection
     {
-        return RoleResource::collection(Role::paginate());
+        $query = Role::query();
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('slug', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%");
+            });
+        }
+
+        $perPage = $request->integer('per_page', 15);
+        $perPage = min(max($perPage, 1), 100);
+
+        return RoleResource::collection($query->paginate($perPage));
     }
 
     public function store(StoreRoleRequest $request): RoleResource
@@ -39,7 +55,8 @@ class RoleController extends Controller
 
     public function destroy(Role $role): JsonResponse
     {
-        if (! Auth::guard('api')->user()?->isAdmin()) {
+        $user = Auth::guard('api')->user();
+        if (! $user instanceof User || ! $user->isAdmin()) {
             return response()->json(['message' => 'This action is unauthorized.'], 403);
         }
 

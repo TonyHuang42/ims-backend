@@ -39,7 +39,18 @@ class UserController extends Controller
             });
         }
 
-        return UserResource::collection($query->paginate());
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%");
+            });
+        }
+
+        $perPage = $request->integer('per_page', 15);
+        $perPage = min(max($perPage, 1), 100);
+
+        return UserResource::collection($query->paginate($perPage));
     }
 
     public function store(StoreUserRequest $request): JsonResponse
