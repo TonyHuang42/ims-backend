@@ -91,21 +91,25 @@ test('non-admin cannot update team', function () {
     $response->assertForbidden();
 });
 
-test('admin can soft-delete team', function () {
-    $team = Team::factory()->create(['department_id' => $this->department->id]);
+test('admin can deactivate team', function () {
+    $team = Team::factory()->create(['department_id' => $this->department->id, 'is_active' => true]);
 
-    $response = $this->deleteJson("/api/v1/teams/{$team->id}", [], [
+    $response = $this->putJson("/api/v1/teams/{$team->id}", [
+        'is_active' => false,
+    ], [
         'Authorization' => "Bearer $this->adminToken",
     ]);
 
     $response->assertSuccessful();
-    $this->assertSoftDeleted('teams', ['id' => $team->id]);
+    $this->assertDatabaseHas('teams', ['id' => $team->id, 'is_active' => false]);
 });
 
-test('non-admin cannot delete team', function () {
-    $team = Team::factory()->create(['department_id' => $this->department->id]);
+test('non-admin cannot deactivate team', function () {
+    $team = Team::factory()->create(['department_id' => $this->department->id, 'is_active' => true]);
 
-    $response = $this->deleteJson("/api/v1/teams/{$team->id}", [], [
+    $response = $this->putJson("/api/v1/teams/{$team->id}", [
+        'is_active' => false,
+    ], [
         'Authorization' => "Bearer $this->userToken",
     ]);
 
@@ -145,7 +149,6 @@ test('unauthenticated user cannot access team routes', function (string $method,
     'store' => ['POST', '/api/v1/teams'],
     'show' => ['GET', '/api/v1/teams/1'],
     'update' => ['PUT', '/api/v1/teams/1'],
-    'destroy' => ['DELETE', '/api/v1/teams/1'],
 ]);
 
 test('show non-existent team returns 404', function () {

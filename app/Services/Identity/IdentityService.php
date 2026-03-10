@@ -2,8 +2,6 @@
 
 namespace App\Services\Identity;
 
-use App\Models\Department;
-use App\Models\Team;
 use App\Models\User;
 use Illuminate\Support\Collection;
 
@@ -21,18 +19,18 @@ class IdentityService implements IdentityServiceInterface
         return $user ? $user->roles : collect();
     }
 
-    public function getUserDepartment(int $userId): ?Department
+    public function getUserDepartments(int $userId): Collection
     {
         $user = User::find($userId);
 
-        return $user ? $user->department : null;
+        return $user ? $user->departments : collect();
     }
 
-    public function getUserTeam(int $userId): ?Team
+    public function getUserTeams(int $userId): Collection
     {
         $user = User::find($userId);
 
-        return $user ? $user->team : null;
+        return $user ? $user->teams : collect();
     }
 
     public function isUserActive(int $userId): bool

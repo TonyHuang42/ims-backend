@@ -37,7 +37,7 @@ class AuthController extends Controller
         if (! $user instanceof User) {
             return response()->json(['error' => 'Unauthorized'], 401);
         }
-        $resource = new UserResource($user->load(['department', 'team', 'roles']));
+        $resource = new UserResource($user->load(['departments', 'teams', 'roles']));
 
         return response()->json($resource->response()->getData(), 200);
     }

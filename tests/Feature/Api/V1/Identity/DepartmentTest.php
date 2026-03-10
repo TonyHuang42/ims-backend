@@ -86,21 +86,25 @@ test('admin can update department', function () {
         ->assertJsonPath('data.name', 'New Name');
 });
 
-test('admin can soft-delete department', function () {
-    $dept = Department::factory()->create();
+test('admin can deactivate department', function () {
+    $dept = Department::factory()->create(['is_active' => true]);
 
-    $response = $this->deleteJson("/api/v1/departments/{$dept->id}", [], [
+    $response = $this->putJson("/api/v1/departments/{$dept->id}", [
+        'is_active' => false,
+    ], [
         'Authorization' => "Bearer $this->adminToken",
     ]);
 
     $response->assertSuccessful();
-    $this->assertSoftDeleted('departments', ['id' => $dept->id]);
+    $this->assertDatabaseHas('departments', ['id' => $dept->id, 'is_active' => false]);
 });
 
-test('non-admin cannot delete department', function () {
-    $dept = Department::factory()->create();
+test('non-admin cannot deactivate department', function () {
+    $dept = Department::factory()->create(['is_active' => true]);
 
-    $response = $this->deleteJson("/api/v1/departments/{$dept->id}", [], [
+    $response = $this->putJson("/api/v1/departments/{$dept->id}", [
+        'is_active' => false,
+    ], [
         'Authorization' => "Bearer $this->userToken",
     ]);
 
@@ -117,7 +121,6 @@ test('unauthenticated user cannot access department routes', function (string $m
     'store' => ['POST', '/api/v1/departments'],
     'show' => ['GET', '/api/v1/departments/1'],
     'update' => ['PUT', '/api/v1/departments/1'],
-    'destroy' => ['DELETE', '/api/v1/departments/1'],
 ]);
 
 test('department validation', function (array $data, array $errors) {

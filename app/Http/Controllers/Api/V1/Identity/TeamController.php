@@ -52,15 +52,13 @@ class TeamController extends Controller
         return new TeamResource($team->load('department'));
     }
 
-    public function destroy(Team $team): JsonResponse
+    protected function isAdmin(): bool
     {
         $user = Auth::guard('api')->user();
-        if (! $user instanceof User || ! $user->isAdmin()) {
-            return response()->json(['message' => 'This action is unauthorized.'], 403);
+        if (! $user instanceof User) {
+            return false;
         }
 
-        $team->delete();
-
-        return response()->json(['message' => 'Team soft-deleted successfully']);
+        return $user->roles()->where('slug', 'admin')->exists();
     }
 }

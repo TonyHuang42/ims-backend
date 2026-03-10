@@ -4,9 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use PHPOpenSourceSaver\JWTAuth\Contracts\JWTSubject;
@@ -14,7 +12,7 @@ use PHPOpenSourceSaver\JWTAuth\Contracts\JWTSubject;
 class User extends Authenticatable implements JWTSubject
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, SoftDeletes;
+    use HasFactory, Notifiable;
 
     /**
      * The attributes that are mass assignable.
@@ -25,8 +23,6 @@ class User extends Authenticatable implements JWTSubject
         'name',
         'email',
         'password',
-        'department_id',
-        'team_id',
         'is_active',
     ];
 
@@ -73,17 +69,19 @@ class User extends Authenticatable implements JWTSubject
             'email' => $this->email,
             'name' => $this->name,
             'roles' => $this->roles->pluck('slug')->toArray(),
+            'departments' => $this->departments->pluck('id')->toArray(),
+            'teams' => $this->teams->pluck('id')->toArray(),
         ];
     }
 
-    public function department(): BelongsTo
+    public function departments(): BelongsToMany
     {
-        return $this->belongsTo(Department::class);
+        return $this->belongsToMany(Department::class);
     }
 
-    public function team(): BelongsTo
+    public function teams(): BelongsToMany
     {
-        return $this->belongsTo(Team::class);
+        return $this->belongsToMany(Team::class);
     }
 
     public function roles(): BelongsToMany

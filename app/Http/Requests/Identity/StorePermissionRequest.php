@@ -4,7 +4,7 @@ namespace App\Http\Requests\Identity;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class StoreRoleRequest extends FormRequest
+class StorePermissionRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -15,11 +15,9 @@ class StoreRoleRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'slug' => ['required', 'string', 'max:255', 'unique:roles'],
+            'slug' => ['required', 'string', 'max:255', 'unique:permissions'],
             'description' => ['nullable', 'string'],
             'is_active' => ['boolean'],
-            'permission_ids' => ['array'],
-            'permission_ids.*' => ['exists:permissions,id'],
         ];
     }
 }

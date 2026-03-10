@@ -24,18 +24,11 @@ class DepartmentTest extends TestCase
     public function test_department_has_users_relationship()
     {
         $department = Department::factory()->create();
-        User::factory(2)->create(['department_id' => $department->id]);
+        $user = User::factory()->create();
+        $department->users()->attach($user);
 
-        $this->assertCount(2, $department->users);
-        $this->assertInstanceOf(User::class, $department->users->first());
-    }
-
-    public function test_department_uses_soft_deletes()
-    {
-        $department = Department::factory()->create();
-        $department->delete();
-
-        $this->assertSoftDeleted('departments', ['id' => $department->id]);
+        $this->assertCount(1, $department->fresh()->users);
+        $this->assertInstanceOf(User::class, $department->fresh()->users->first());
     }
 
     public function test_department_casts_is_active_to_boolean()

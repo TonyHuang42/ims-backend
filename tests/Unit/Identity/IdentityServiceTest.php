@@ -36,28 +36,34 @@ test('getUserRoles returns roles collection', function () {
     expect($this->service->getUserRoles(999))->toBeEmpty();
 });
 
-test('getUserDepartment returns department or null', function () {
+test('getUserDepartments returns departments collection', function () {
     $dept = Department::factory()->create();
-    $user = User::factory()->create(['department_id' => $dept->id]);
+    $user = User::factory()->create();
+    $user->departments()->attach($dept);
 
-    expect($this->service->getUserDepartment($user->id))->toBeInstanceOf(Department::class)
-        ->id->toBe($dept->id);
+    $departments = $this->service->getUserDepartments($user->id);
+
+    expect($departments)->toHaveCount(1)
+        ->first()->id->toBe($dept->id);
 
     $userNoDept = User::factory()->create();
-    expect($this->service->getUserDepartment($userNoDept->id))->toBeNull();
-    expect($this->service->getUserDepartment(999))->toBeNull();
+    expect($this->service->getUserDepartments($userNoDept->id))->toBeEmpty();
+    expect($this->service->getUserDepartments(999))->toBeEmpty();
 });
 
-test('getUserTeam returns team or null', function () {
+test('getUserTeams returns teams collection', function () {
     $team = Team::factory()->create();
-    $user = User::factory()->create(['team_id' => $team->id]);
+    $user = User::factory()->create();
+    $user->teams()->attach($team);
 
-    expect($this->service->getUserTeam($user->id))->toBeInstanceOf(Team::class)
-        ->id->toBe($team->id);
+    $teams = $this->service->getUserTeams($user->id);
+
+    expect($teams)->toHaveCount(1)
+        ->first()->id->toBe($team->id);
 
     $userNoTeam = User::factory()->create();
-    expect($this->service->getUserTeam($userNoTeam->id))->toBeNull();
-    expect($this->service->getUserTeam(999))->toBeNull();
+    expect($this->service->getUserTeams($userNoTeam->id))->toBeEmpty();
+    expect($this->service->getUserTeams(999))->toBeEmpty();
 });
 
 test('isUserActive returns correct boolean', function () {

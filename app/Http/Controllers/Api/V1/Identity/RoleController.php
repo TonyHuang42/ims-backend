@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Api\V1\Identity;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Identity\StoreRoleRequest;
+use App\Http\Requests\Identity\SyncRolePermissionsRequest;
 use App\Http\Requests\Identity\UpdateRoleRequest;
+use App\Http\Resources\Identity\PermissionResource;
 use App\Http\Resources\Identity\RoleResource;
 use App\Models\Role;
 use App\Models\User;
@@ -34,34 +36,64 @@ class RoleController extends Controller
         return RoleResource::collection($query->paginate($perPage));
     }
 
-    public function store(StoreRoleRequest $request): RoleResource
+    public function store(StoreRoleRequest $request): RoleResource|JsonResponse
     {
+        if (! $this->isAdmin()) {
+            return response()->json(['message' => 'This action is unauthorized.'], 403);
+        }
+
         $role = Role::create($request->validated());
 
-        return new RoleResource($role);
+        if ($request->has('permission_ids')) {
+            $role->permissions()->sync($request->permission_ids);
+        }
+
+        return new RoleResource($role->load('permissions'));
     }
 
     public function show(Role $role): RoleResource
     {
-        return new RoleResource($role);
+        return new RoleResource($role->load('permissions'));
     }
 
-    public function update(UpdateRoleRequest $request, Role $role): RoleResource
+    public function update(UpdateRoleRequest $request, Role $role): RoleResource|JsonResponse
     {
-        $role->update($request->validated());
-
-        return new RoleResource($role);
-    }
-
-    public function destroy(Role $role): JsonResponse
-    {
-        $user = Auth::guard('api')->user();
-        if (! $user instanceof User || ! $user->isAdmin()) {
+        if (! $this->isAdmin()) {
             return response()->json(['message' => 'This action is unauthorized.'], 403);
         }
 
-        $role->delete();
+        $role->update($request->validated());
 
-        return response()->json(['message' => 'Role soft-deleted successfully']);
+        if ($request->has('permission_ids')) {
+            $role->permissions()->sync($request->permission_ids);
+        }
+
+        return new RoleResource($role->load('permissions'));
+    }
+
+    public function syncPermissions(SyncRolePermissionsRequest $request, Role $role): JsonResponse
+    {
+        if (! $this->isAdmin()) {
+            return response()->json(['message' => 'This action is unauthorized.'], 403);
+        }
+
+        $role->permissions()->sync($request->permission_ids);
+
+        return response()->json(['message' => 'Permissions synced successfully']);
+    }
+
+    public function getPermissions(Role $role): AnonymousResourceCollection
+    {
+        return PermissionResource::collection($role->permissions);
+    }
+
+    protected function isAdmin(): bool
+    {
+        $user = Auth::guard('api')->user();
+        if (! $user instanceof User) {
+            return false;
+        }
+
+        return $user->roles()->where('slug', 'admin')->exists();
     }
 }

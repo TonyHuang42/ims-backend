@@ -13,22 +13,24 @@ class UserTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_user_has_department_relationship()
+    public function test_user_has_departments_relationship()
     {
         $department = Department::factory()->create();
-        $user = User::factory()->create(['department_id' => $department->id]);
+        $user = User::factory()->create();
+        $user->departments()->attach($department);
 
-        $this->assertInstanceOf(Department::class, $user->department);
-        $this->assertEquals($department->id, $user->department->id);
+        $this->assertCount(1, $user->fresh()->departments);
+        $this->assertEquals($department->id, $user->fresh()->departments->first()->id);
     }
 
-    public function test_user_has_team_relationship()
+    public function test_user_has_teams_relationship()
     {
         $team = Team::factory()->create();
-        $user = User::factory()->create(['team_id' => $team->id]);
+        $user = User::factory()->create();
+        $user->teams()->attach($team);
 
-        $this->assertInstanceOf(Team::class, $user->team);
-        $this->assertEquals($team->id, $user->team->id);
+        $this->assertCount(1, $user->fresh()->teams);
+        $this->assertEquals($team->id, $user->fresh()->teams->first()->id);
     }
 
     public function test_user_has_roles_relationship()
@@ -54,20 +56,12 @@ class UserTest extends TestCase
         $this->assertTrue($user->isAdmin());
     }
 
-    public function test_user_uses_soft_deletes()
-    {
-        $user = User::factory()->create();
-        $user->delete();
-
-        $this->assertSoftDeleted('users', ['id' => $user->id]);
-    }
-
     public function test_user_factory_with_identity_state()
     {
         $user = User::factory()->withIdentity()->create();
 
-        $this->assertNotNull($user->department_id);
-        $this->assertNotNull($user->team_id);
-        $this->assertEquals($user->department_id, $user->team->department_id);
+        $this->assertCount(1, $user->departments);
+        $this->assertCount(1, $user->teams);
+        $this->assertEquals($user->departments->first()->id, $user->teams->first()->department_id);
     }
 }

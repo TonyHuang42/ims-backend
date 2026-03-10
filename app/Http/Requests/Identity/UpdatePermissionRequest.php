@@ -5,7 +5,7 @@ namespace App\Http\Requests\Identity;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class UpdateRoleRequest extends FormRequest
+class UpdatePermissionRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -16,11 +16,9 @@ class UpdateRoleRequest extends FormRequest
     {
         return [
             'name' => ['sometimes', 'string', 'max:255'],
-            'slug' => ['sometimes', 'string', 'max:255', Rule::unique('roles')->ignore($this->role)],
+            'slug' => ['sometimes', 'string', 'max:255', Rule::unique('permissions')->ignore($this->permission)],
             'description' => ['nullable', 'string'],
             'is_active' => ['boolean'],
-            'permission_ids' => ['array'],
-            'permission_ids.*' => ['exists:permissions,id'],
         ];
     }
 }

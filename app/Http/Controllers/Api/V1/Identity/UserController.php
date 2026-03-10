@@ -4,9 +4,13 @@ namespace App\Http\Controllers\Api\V1\Identity;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Identity\StoreUserRequest;
+use App\Http\Requests\Identity\SyncUserDepartmentsRequest;
 use App\Http\Requests\Identity\SyncUserRolesRequest;
+use App\Http\Requests\Identity\SyncUserTeamsRequest;
 use App\Http\Requests\Identity\UpdateUserRequest;
+use App\Http\Resources\Identity\DepartmentResource;
 use App\Http\Resources\Identity\RoleResource;
+use App\Http\Resources\Identity\TeamResource;
 use App\Http\Resources\Identity\UserResource;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -19,14 +23,18 @@ class UserController extends Controller
 {
     public function index(Request $request): AnonymousResourceCollection
     {
-        $query = User::query()->with(['department', 'team', 'roles']);
+        $query = User::query()->with(['departments', 'teams', 'roles']);
 
         if ($request->has('department_id')) {
-            $query->where('department_id', $request->department_id);
+            $query->whereHas('departments', function ($q) use ($request) {
+                $q->where('departments.id', $request->department_id);
+            });
         }
 
         if ($request->has('team_id')) {
-            $query->where('team_id', $request->team_id);
+            $query->whereHas('teams', function ($q) use ($request) {
+                $q->where('teams.id', $request->team_id);
+            });
         }
 
         if ($request->has('is_active')) {
@@ -68,14 +76,22 @@ class UserController extends Controller
             $user->roles()->sync($request->role_ids);
         }
 
-        $resource = new UserResource($user->load(['department', 'team', 'roles']));
+        if ($request->has('department_ids')) {
+            $user->departments()->sync($request->department_ids);
+        }
+
+        if ($request->has('team_ids')) {
+            $user->teams()->sync($request->team_ids);
+        }
+
+        $resource = new UserResource($user->load(['departments', 'teams', 'roles']));
 
         return response()->json($resource->response()->getData(), 201);
     }
 
     public function show(User $user): UserResource
     {
-        return new UserResource($user->load(['department', 'team', 'roles']));
+        return new UserResource($user->load(['departments', 'teams', 'roles']));
     }
 
     public function update(UpdateUserRequest $request, User $user): JsonResponse
@@ -92,20 +108,21 @@ class UserController extends Controller
 
         $user->update($data);
 
-        $resource = new UserResource($user->load(['department', 'team', 'roles']));
-
-        return response()->json($resource->response()->getData(), 200);
-    }
-
-    public function destroy(User $user): JsonResponse
-    {
-        if (! $this->isAdmin()) {
-            return response()->json(['message' => 'This action is unauthorized.'], 403);
+        if ($request->has('role_ids')) {
+            $user->roles()->sync($request->role_ids);
         }
 
-        $user->delete();
+        if ($request->has('department_ids')) {
+            $user->departments()->sync($request->department_ids);
+        }
 
-        return response()->json(['message' => 'User soft-deleted successfully']);
+        if ($request->has('team_ids')) {
+            $user->teams()->sync($request->team_ids);
+        }
+
+        $resource = new UserResource($user->load(['departments', 'teams', 'roles']));
+
+        return response()->json($resource->response()->getData(), 200);
     }
 
     public function syncRoles(SyncUserRolesRequest $request, User $user): JsonResponse
@@ -122,6 +139,38 @@ class UserController extends Controller
     public function getRoles(User $user): AnonymousResourceCollection
     {
         return RoleResource::collection($user->roles);
+    }
+
+    public function syncDepartments(SyncUserDepartmentsRequest $request, User $user): JsonResponse
+    {
+        if (! $this->isAdmin()) {
+            return response()->json(['message' => 'This action is unauthorized.'], 403);
+        }
+
+        $user->departments()->sync($request->department_ids);
+
+        return response()->json(['message' => 'Departments synced successfully']);
+    }
+
+    public function getDepartments(User $user): AnonymousResourceCollection
+    {
+        return DepartmentResource::collection($user->departments);
+    }
+
+    public function syncTeams(SyncUserTeamsRequest $request, User $user): JsonResponse
+    {
+        if (! $this->isAdmin()) {
+            return response()->json(['message' => 'This action is unauthorized.'], 403);
+        }
+
+        $user->teams()->sync($request->team_ids);
+
+        return response()->json(['message' => 'Teams synced successfully']);
+    }
+
+    public function getTeams(User $user): AnonymousResourceCollection
+    {
+        return TeamResource::collection($user->teams);
     }
 
     protected function isAdmin(): bool

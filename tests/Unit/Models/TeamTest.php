@@ -24,18 +24,11 @@ class TeamTest extends TestCase
     public function test_team_has_users_relationship()
     {
         $team = Team::factory()->create();
-        User::factory(2)->create(['team_id' => $team->id]);
+        $user = User::factory()->create();
+        $team->users()->attach($user);
 
-        $this->assertCount(2, $team->users);
-        $this->assertInstanceOf(User::class, $team->users->first());
-    }
-
-    public function test_team_uses_soft_deletes()
-    {
-        $team = Team::factory()->create();
-        $team->delete();
-
-        $this->assertSoftDeleted('teams', ['id' => $team->id]);
+        $this->assertCount(1, $team->fresh()->users);
+        $this->assertInstanceOf(User::class, $team->fresh()->users->first());
     }
 
     public function test_team_casts_is_active_to_boolean()

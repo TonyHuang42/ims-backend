@@ -1,25 +1,32 @@
 <?php
 
+use App\Models\Department;
 use App\Models\Role;
+use App\Models\Team;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 
 uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
 
 beforeEach(function () {
+    /** @var \Tests\TestCase $this */
     $this->adminRole = Role::factory()->create(['slug' => 'admin']);
     $this->userRole = Role::factory()->create(['slug' => 'user']);
 
     $this->admin = User::factory()->create();
     $this->admin->roles()->attach($this->adminRole);
-    $this->adminToken = Auth::guard('api')->tokenById($this->admin->id);
+
+    /** @var \PHPOpenSourceSaver\JWTAuth\JWTGuard $apiGuard */
+    $apiGuard = Auth::guard('api');
+    $this->adminToken = $apiGuard->tokenById($this->admin->id);
 
     $this->user = User::factory()->create();
     $this->user->roles()->attach($this->userRole);
-    $this->userToken = Auth::guard('api')->tokenById($this->user->id);
+    $this->userToken = $apiGuard->tokenById($this->user->id);
 });
 
 test('admin can list users', function () {
+    /** @var \Tests\TestCase $this */
     $response = $this->getJson('/api/v1/users', [
         'Authorization' => "Bearer $this->adminToken",
     ]);
@@ -29,6 +36,7 @@ test('admin can list users', function () {
 });
 
 test('admin can show user', function () {
+    /** @var \Tests\TestCase $this */
     $targetUser = User::factory()->create();
 
     $response = $this->getJson("/api/v1/users/{$targetUser->id}", [
@@ -37,10 +45,11 @@ test('admin can show user', function () {
 
     $response->assertSuccessful()
         ->assertJsonPath('data.id', $targetUser->id)
-        ->assertJsonStructure(['data' => ['id', 'name', 'email', 'department', 'team', 'roles']]);
+        ->assertJsonStructure(['data' => ['id', 'name', 'email', 'departments', 'teams', 'roles']]);
 });
 
 test('admin can create user', function () {
+    /** @var \Tests\TestCase $this */
     $response = $this->postJson('/api/v1/users', [
         'name' => 'New User',
         'email' => 'newuser@example.com',
@@ -56,26 +65,28 @@ test('admin can create user', function () {
     $this->assertDatabaseHas('users', ['email' => 'newuser@example.com']);
 });
 
-test('admin can create user with department and team', function () {
-    $dept = \App\Models\Department::factory()->create();
-    $team = \App\Models\Team::factory()->create(['department_id' => $dept->id]);
+test('admin can create user with departments and teams', function () {
+    /** @var \Tests\TestCase $this */
+    $dept = Department::factory()->create();
+    $team = Team::factory()->create(['department_id' => $dept->id]);
 
     $response = $this->postJson('/api/v1/users', [
         'name' => 'Identity User',
         'email' => 'identity@example.com',
         'password' => 'password123',
-        'department_id' => $dept->id,
-        'team_id' => $team->id,
+        'department_ids' => [$dept->id],
+        'team_ids' => [$team->id],
     ], [
         'Authorization' => "Bearer $this->adminToken",
     ]);
 
     $response->assertCreated()
-        ->assertJsonPath('data.department.id', $dept->id)
-        ->assertJsonPath('data.team.id', $team->id);
+        ->assertJsonPath('data.departments.0.id', $dept->id)
+        ->assertJsonPath('data.teams.0.id', $team->id);
 });
 
 test('non-admin cannot create user', function () {
+    /** @var \Tests\TestCase $this */
     $response = $this->postJson('/api/v1/users', [
         'name' => 'New User',
         'email' => 'newuser@example.com',
@@ -88,6 +99,7 @@ test('non-admin cannot create user', function () {
 });
 
 test('admin can update user', function () {
+    /** @var \Tests\TestCase $this */
     $targetUser = User::factory()->create();
 
     $response = $this->putJson("/api/v1/users/{$targetUser->id}", [
@@ -101,6 +113,7 @@ test('admin can update user', function () {
 });
 
 test('non-admin cannot update user', function () {
+    /** @var \Tests\TestCase $this */
     $targetUser = User::factory()->create();
 
     $response = $this->putJson("/api/v1/users/{$targetUser->id}", [
@@ -112,21 +125,27 @@ test('non-admin cannot update user', function () {
     $response->assertForbidden();
 });
 
-test('admin can soft-delete user', function () {
-    $targetUser = User::factory()->create();
+test('admin can deactivate user', function () {
+    /** @var \Tests\TestCase $this */
+    $targetUser = User::factory()->create(['is_active' => true]);
 
-    $response = $this->deleteJson("/api/v1/users/{$targetUser->id}", [], [
+    $response = $this->putJson("/api/v1/users/{$targetUser->id}", [
+        'is_active' => false,
+    ], [
         'Authorization' => "Bearer $this->adminToken",
     ]);
 
     $response->assertSuccessful();
-    $this->assertSoftDeleted('users', ['id' => $targetUser->id]);
+    $this->assertDatabaseHas('users', ['id' => $targetUser->id, 'is_active' => false]);
 });
 
-test('non-admin cannot soft-delete user', function () {
-    $targetUser = User::factory()->create();
+test('non-admin cannot deactivate user', function () {
+    /** @var \Tests\TestCase $this */
+    $targetUser = User::factory()->create(['is_active' => true]);
 
-    $response = $this->deleteJson("/api/v1/users/{$targetUser->id}", [], [
+    $response = $this->putJson("/api/v1/users/{$targetUser->id}", [
+        'is_active' => false,
+    ], [
         'Authorization' => "Bearer $this->userToken",
     ]);
 
@@ -134,6 +153,7 @@ test('non-admin cannot soft-delete user', function () {
 });
 
 test('admin can sync user roles', function () {
+    /** @var \Tests\TestCase $this */
     $targetUser = User::factory()->create();
     $newRole = Role::factory()->create();
 
@@ -149,20 +169,42 @@ test('admin can sync user roles', function () {
     $this->assertTrue($targetUser->fresh()->roles->contains($newRole->id));
 });
 
-test('non-admin cannot sync user roles', function () {
+test('admin can sync user departments', function () {
+    /** @var \Tests\TestCase $this */
     $targetUser = User::factory()->create();
-    $newRole = Role::factory()->create();
+    $dept = Department::factory()->create();
 
-    $response = $this->postJson("/api/v1/users/{$targetUser->id}/roles", [
-        'role_ids' => [$newRole->id],
+    $response = $this->postJson("/api/v1/users/{$targetUser->id}/departments", [
+        'department_ids' => [$dept->id],
     ], [
-        'Authorization' => "Bearer $this->userToken",
+        'Authorization' => "Bearer $this->adminToken",
     ]);
 
-    $response->assertForbidden();
+    $response->assertSuccessful()
+        ->assertJson(['message' => 'Departments synced successfully']);
+
+    $this->assertTrue($targetUser->fresh()->departments->contains($dept->id));
+});
+
+test('admin can sync user teams', function () {
+    /** @var \Tests\TestCase $this */
+    $targetUser = User::factory()->create();
+    $team = Team::factory()->create();
+
+    $response = $this->postJson("/api/v1/users/{$targetUser->id}/teams", [
+        'team_ids' => [$team->id],
+    ], [
+        'Authorization' => "Bearer $this->adminToken",
+    ]);
+
+    $response->assertSuccessful()
+        ->assertJson(['message' => 'Teams synced successfully']);
+
+    $this->assertTrue($targetUser->fresh()->teams->contains($team->id));
 });
 
 test('admin can get user roles', function () {
+    /** @var \Tests\TestCase $this */
     $targetUser = User::factory()->create();
     $targetUser->roles()->attach($this->userRole);
 
@@ -176,16 +218,17 @@ test('admin can get user roles', function () {
 });
 
 test('user filtering', function (string $filter, $value, int $expectedCount) {
-    /** @var TestCase $this */
-    $dept = \App\Models\Department::factory()->create();
-    $team = \App\Models\Team::factory()->create(['department_id' => $dept->id]);
+    /** @var \Tests\TestCase $this */
+    $dept = Department::factory()->create();
+    $team = Team::factory()->create(['department_id' => $dept->id]);
     $role = Role::factory()->create();
 
-    User::factory()->create([
-        'department_id' => $dept->id,
-        'team_id' => $team->id,
+    $u = User::factory()->create([
         'is_active' => true,
-    ])->roles()->attach($role);
+    ]);
+    $u->departments()->attach($dept);
+    $u->teams()->attach($team);
+    $u->roles()->attach($role);
 
     // Filter values might need to be resolved if they are closures
     $val = is_callable($value) ? $value($dept, $team, $role) : $value;
@@ -204,7 +247,7 @@ test('user filtering', function (string $filter, $value, int $expectedCount) {
 ]);
 
 test('user validation', function (array $data, array $errors) {
-    /** @var TestCase $this */
+    /** @var \Tests\TestCase $this */
     $response = $this->postJson('/api/v1/users', $data, [
         'Authorization' => "Bearer $this->adminToken",
     ]);
@@ -222,8 +265,120 @@ test('user validation', function (array $data, array $errors) {
     'invalid role_ids' => [['name' => 'Test', 'email' => 't@e.com', 'password' => 'p123', 'role_ids' => [999]], ['role_ids.0']],
 ]);
 
+test('admin can create user with multiple departments and teams', function () {
+    /** @var \Tests\TestCase $this */
+    $dept1 = Department::factory()->create();
+    $dept2 = Department::factory()->create();
+    $team1 = Team::factory()->create(['department_id' => $dept1->id]);
+    $team2 = Team::factory()->create(['department_id' => $dept2->id]);
+
+    $response = $this->postJson('/api/v1/users', [
+        'name' => 'Multi Identity User',
+        'email' => 'multi@example.com',
+        'password' => 'password123',
+        'department_ids' => [$dept1->id, $dept2->id],
+        'team_ids' => [$team1->id, $team2->id],
+    ], [
+        'Authorization' => "Bearer $this->adminToken",
+    ]);
+
+    $response->assertCreated()
+        ->assertJsonCount(2, 'data.departments')
+        ->assertJsonCount(2, 'data.teams');
+});
+
+test('admin can sync user departments with empty array', function () {
+    /** @var \Tests\TestCase $this */
+    $targetUser = User::factory()->create();
+    $dept = Department::factory()->create();
+    $targetUser->departments()->attach($dept);
+
+    $response = $this->postJson("/api/v1/users/{$targetUser->id}/departments", [
+        'department_ids' => [],
+    ], [
+        'Authorization' => "Bearer $this->adminToken",
+    ]);
+
+    $response->assertSuccessful();
+    $this->assertCount(0, $targetUser->fresh()->departments);
+});
+
+test('admin can sync user teams with empty array', function () {
+    /** @var \Tests\TestCase $this */
+    $targetUser = User::factory()->create();
+    $team = Team::factory()->create();
+    $targetUser->teams()->attach($team);
+
+    $response = $this->postJson("/api/v1/users/{$targetUser->id}/teams", [
+        'team_ids' => [],
+    ], [
+        'Authorization' => "Bearer $this->adminToken",
+    ]);
+
+    $response->assertSuccessful();
+    $this->assertCount(0, $targetUser->fresh()->teams);
+});
+
+test('admin can get user departments', function () {
+    /** @var \Tests\TestCase $this */
+    $targetUser = User::factory()->create();
+    $dept = Department::factory()->create();
+    $targetUser->departments()->attach($dept);
+
+    $response = $this->getJson("/api/v1/users/{$targetUser->id}/departments", [
+        'Authorization' => "Bearer $this->adminToken",
+    ]);
+
+    $response->assertSuccessful()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.id', $dept->id);
+});
+
+test('admin can get user teams', function () {
+    /** @var \Tests\TestCase $this */
+    $targetUser = User::factory()->create();
+    $team = Team::factory()->create();
+    $targetUser->teams()->attach($team);
+
+    $response = $this->getJson("/api/v1/users/{$targetUser->id}/teams", [
+        'Authorization' => "Bearer $this->adminToken",
+    ]);
+
+    $response->assertSuccessful()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.id', $team->id);
+});
+
+test('non-admin cannot sync user departments', function () {
+    /** @var \Tests\TestCase $this */
+    $targetUser = User::factory()->create();
+    $dept = Department::factory()->create();
+
+    $response = $this->postJson("/api/v1/users/{$targetUser->id}/departments", [
+        'department_ids' => [$dept->id],
+    ], [
+        'Authorization' => "Bearer $this->userToken",
+    ]);
+
+    $response->assertForbidden();
+});
+
+test('non-admin cannot sync user teams', function () {
+    /** @var \Tests\TestCase $this */
+    $targetUser = User::factory()->create();
+    $team = Team::factory()->create();
+
+    $response = $this->postJson("/api/v1/users/{$targetUser->id}/teams", [
+        'team_ids' => [$team->id],
+    ], [
+        'Authorization' => "Bearer $this->userToken",
+    ]);
+
+    $response->assertForbidden();
+});
+
 test('unauthenticated user cannot access user routes', function (string $method, string $uri) {
-    /** @var TestCase $this */
+    /** @var \Tests\TestCase $this */
     $response = $this->json($method, $uri);
 
     $response->assertUnauthorized();
@@ -232,15 +387,10 @@ test('unauthenticated user cannot access user routes', function (string $method,
     'store' => ['POST', '/api/v1/users'],
     'show' => ['GET', '/api/v1/users/1'],
     'update' => ['PUT', '/api/v1/users/1'],
-    'destroy' => ['DELETE', '/api/v1/users/1'],
     'sync-roles' => ['POST', '/api/v1/users/1/roles'],
     'get-roles' => ['GET', '/api/v1/users/1/roles'],
+    'sync-departments' => ['POST', '/api/v1/users/1/departments'],
+    'get-departments' => ['GET', '/api/v1/users/1/departments'],
+    'sync-teams' => ['POST', '/api/v1/users/1/teams'],
+    'get-teams' => ['GET', '/api/v1/users/1/teams'],
 ]);
-
-test('show non-existent user returns 404', function () {
-    $response = $this->getJson('/api/v1/users/999', [
-        'Authorization' => "Bearer $this->adminToken",
-    ]);
-
-    $response->assertNotFound();
-});

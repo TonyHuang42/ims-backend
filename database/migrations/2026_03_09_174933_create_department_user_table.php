@@ -8,18 +8,18 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('teams', function (Blueprint $table) {
+        Schema::create('department_user', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
             $table->foreignId('department_id')->constrained()->onDelete('cascade');
-            $table->text('description')->nullable();
-            $table->boolean('is_active')->default(true);
+            $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->timestamps();
+
+            $table->unique(['department_id', 'user_id']);
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('teams');
+        Schema::dropIfExists('department_user');
     }
 };

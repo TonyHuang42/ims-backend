@@ -2,6 +2,7 @@
 
 namespace Tests\Unit\Models;
 
+use App\Models\Permission;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -17,16 +18,18 @@ class RoleTest extends TestCase
         $user = User::factory()->create();
         $role->users()->attach($user);
 
-        $this->assertCount(1, $role->users);
-        $this->assertInstanceOf(User::class, $role->users->first());
+        $this->assertCount(1, $role->fresh()->users);
+        $this->assertInstanceOf(User::class, $role->fresh()->users->first());
     }
 
-    public function test_role_uses_soft_deletes()
+    public function test_role_has_permissions_relationship()
     {
         $role = Role::factory()->create();
-        $role->delete();
+        $permission = Permission::factory()->create();
+        $role->permissions()->attach($permission);
 
-        $this->assertSoftDeleted('roles', ['id' => $role->id]);
+        $this->assertCount(1, $role->fresh()->permissions);
+        $this->assertInstanceOf(Permission::class, $role->fresh()->permissions->first());
     }
 
     public function test_role_casts_is_active_to_boolean()
