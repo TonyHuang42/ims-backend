@@ -14,11 +14,15 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
+    public function __construct()
+    {
+        $this->authorizeResource(User::class, 'user');
+    }
+
     public function index(Request $request): AnonymousResourceCollection
     {
         $query = User::query()->with(['departments', 'teams', 'role']);
@@ -59,10 +63,6 @@ class UserController extends Controller
 
     public function store(StoreUserRequest $request): JsonResponse
     {
-        if (! $this->isAdmin()) {
-            return response()->json(['message' => 'This action is unauthorized.'], 403);
-        }
-
         $data = $request->validated();
         $data['password'] = Hash::make($data['password']);
 
@@ -88,10 +88,6 @@ class UserController extends Controller
 
     public function update(UpdateUserRequest $request, User $user): JsonResponse
     {
-        if (! $this->isAdmin()) {
-            return response()->json(['message' => 'This action is unauthorized.'], 403);
-        }
-
         $data = $request->validated();
 
         if (isset($data['password'])) {
@@ -115,9 +111,7 @@ class UserController extends Controller
 
     public function syncDepartments(SyncUserDepartmentsRequest $request, User $user): JsonResponse
     {
-        if (! $this->isAdmin()) {
-            return response()->json(['message' => 'This action is unauthorized.'], 403);
-        }
+        $this->authorize('update', $user);
 
         $user->departments()->sync($request->department_ids);
 
@@ -131,9 +125,7 @@ class UserController extends Controller
 
     public function syncTeams(SyncUserTeamsRequest $request, User $user): JsonResponse
     {
-        if (! $this->isAdmin()) {
-            return response()->json(['message' => 'This action is unauthorized.'], 403);
-        }
+        $this->authorize('update', $user);
 
         $user->teams()->sync($request->team_ids);
 
@@ -143,15 +135,5 @@ class UserController extends Controller
     public function getTeams(User $user): AnonymousResourceCollection
     {
         return TeamResource::collection($user->teams);
-    }
-
-    protected function isAdmin(): bool
-    {
-        $user = Auth::guard('api')->user();
-        if (! $user instanceof User) {
-            return false;
-        }
-
-        return $user->role?->name === 'admin';
     }
 }

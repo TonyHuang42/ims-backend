@@ -10,11 +10,15 @@ uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
 beforeEach(function () {
     /** @var \Tests\TestCase $this */
     $this->adminRole = Role::factory()->create(['name' => 'admin']);
+    $this->managerRole = Role::factory()->create(['name' => 'manager']);
     $this->userRole = Role::factory()->create(['name' => 'user']);
     $this->admin = User::factory()->create(['role_id' => $this->adminRole->id]);
     /** @var JWTGuard $apiGuard */
     $apiGuard = Auth::guard('api');
     $this->adminToken = $apiGuard->tokenById($this->admin->id);
+
+    $this->manager = User::factory()->create(['role_id' => $this->managerRole->id]);
+    $this->managerToken = $apiGuard->tokenById($this->manager->id);
 
     $this->user = User::factory()->create(['role_id' => $this->userRole->id]);
     $this->userToken = $apiGuard->tokenById($this->user->id);
@@ -29,7 +33,45 @@ test('admin can list roles', function () {
     ]);
 
     $response->assertSuccessful()
-        ->assertJsonCount(5, 'data'); // 3 + admin + user from beforeEach
+        ->assertJsonCount(6, 'data'); // 3 + admin + manager + user from beforeEach
+});
+
+test('manager can list roles', function () {
+    /** @var \Tests\TestCase $this */
+    Role::factory(3)->create();
+
+    $response = $this->getJson('/api/v1/roles', [
+        'Authorization' => "Bearer $this->managerToken",
+    ]);
+
+    $response->assertSuccessful()
+        ->assertJsonStructure(['data', 'links', 'meta']);
+});
+
+test('user can list roles', function () {
+    /** @var \Tests\TestCase $this */
+    Role::factory(3)->create();
+
+    $response = $this->getJson('/api/v1/roles', [
+        'Authorization' => "Bearer $this->userToken",
+    ]);
+
+    $response->assertSuccessful()
+        ->assertJsonStructure(['data', 'links', 'meta']);
+});
+
+test('role search filter returns matching roles only', function () {
+    /** @var \Tests\TestCase $this */
+    $matchedRole = Role::factory()->create(['name' => 'search-role-matched']);
+    Role::factory()->create(['name' => 'other-role']);
+
+    $response = $this->getJson('/api/v1/roles?search=search-role-matched', [
+        'Authorization' => "Bearer $this->adminToken",
+    ]);
+
+    $response->assertSuccessful()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.id', $matchedRole->id);
 });
 
 test('admin can show role', function () {
@@ -44,16 +86,40 @@ test('admin can show role', function () {
         ->assertJsonPath('data.id', $role->id);
 });
 
+test('manager can show role', function () {
+    /** @var \Tests\TestCase $this */
+    $role = Role::factory()->create();
+
+    $response = $this->getJson("/api/v1/roles/{$role->id}", [
+        'Authorization' => "Bearer $this->managerToken",
+    ]);
+
+    $response->assertSuccessful()
+        ->assertJsonPath('data.id', $role->id);
+});
+
+test('user can show role', function () {
+    /** @var \Tests\TestCase $this */
+    $role = Role::factory()->create();
+
+    $response = $this->getJson("/api/v1/roles/{$role->id}", [
+        'Authorization' => "Bearer $this->userToken",
+    ]);
+
+    $response->assertSuccessful()
+        ->assertJsonPath('data.id', $role->id);
+});
+
 test('admin can create role', function () {
     /** @var \Tests\TestCase $this */
     $response = $this->postJson('/api/v1/roles', [
-        'name' => 'manager',
+        'name' => 'custom-manager',
     ], [
         'Authorization' => "Bearer $this->adminToken",
     ]);
 
     $response->assertCreated()
-        ->assertJsonPath('data.name', 'manager');
+        ->assertJsonPath('data.name', 'custom-manager');
 });
 
 test('non-admin cannot create role', function () {

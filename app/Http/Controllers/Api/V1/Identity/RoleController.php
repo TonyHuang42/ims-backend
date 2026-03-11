@@ -7,14 +7,17 @@ use App\Http\Requests\Identity\StoreRoleRequest;
 use App\Http\Requests\Identity\UpdateRoleRequest;
 use App\Http\Resources\Identity\RoleResource;
 use App\Models\Role;
-use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
-use Illuminate\Support\Facades\Auth;
 
 class RoleController extends Controller
 {
+    public function __construct()
+    {
+        $this->authorizeResource(Role::class, 'role');
+    }
+
     public function index(Request $request): AnonymousResourceCollection
     {
         $query = Role::query();
@@ -31,10 +34,6 @@ class RoleController extends Controller
 
     public function store(StoreRoleRequest $request): RoleResource|JsonResponse
     {
-        if (! $this->isAdmin()) {
-            return response()->json(['message' => 'This action is unauthorized.'], 403);
-        }
-
         $role = Role::create($request->validated());
 
         return new RoleResource($role);
@@ -47,22 +46,8 @@ class RoleController extends Controller
 
     public function update(UpdateRoleRequest $request, Role $role): RoleResource|JsonResponse
     {
-        if (! $this->isAdmin()) {
-            return response()->json(['message' => 'This action is unauthorized.'], 403);
-        }
-
         $role->update($request->validated());
 
         return new RoleResource($role);
-    }
-
-    protected function isAdmin(): bool
-    {
-        $user = Auth::guard('api')->user();
-        if (! $user instanceof User) {
-            return false;
-        }
-
-        return $user->role?->name === 'admin';
     }
 }
