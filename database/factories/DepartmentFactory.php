@@ -10,7 +10,6 @@ class DepartmentFactory extends Factory
     {
         return [
             'name' => fake()->company().' Department',
-            'description' => fake()->sentence(),
             'is_active' => true,
         ];
     }

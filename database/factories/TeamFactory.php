@@ -12,7 +12,6 @@ class TeamFactory extends Factory
         return [
             'name' => fake()->word().' Team',
             'department_id' => Department::factory(),
-            'description' => fake()->sentence(),
             'is_active' => true,
         ];
     }

@@ -17,7 +17,6 @@ class UpdateTeamRequest extends FormRequest
         return [
             'name' => ['sometimes', 'string', 'max:255'],
             'department_id' => ['sometimes', 'exists:departments,id'],
-            'description' => ['nullable', 'string'],
             'is_active' => ['boolean'],
         ];
     }

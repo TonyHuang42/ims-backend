@@ -2,6 +2,7 @@
 
 namespace App\Services\Identity;
 
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Support\Collection;
 
@@ -12,11 +13,11 @@ class IdentityService implements IdentityServiceInterface
         return User::find($id);
     }
 
-    public function getUserRoles(int $userId): Collection
+    public function getUserRole(int $userId): ?Role
     {
         $user = User::find($userId);
 
-        return $user ? $user->roles : collect();
+        return $user?->role;
     }
 
     public function getUserDepartments(int $userId): Collection

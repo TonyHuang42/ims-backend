@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\Department;
-use App\Models\Permission;
 use App\Models\Role;
 use App\Models\Team;
 use App\Models\User;
@@ -17,34 +16,25 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
-            PermissionSeeder::class,
             RoleSeeder::class,
         ]);
 
-        // Assign all permissions to admin role
-        $adminRole = Role::where('slug', 'admin')->first();
-        $adminRole->permissions()->attach(Permission::all());
+        $adminRole = Role::where('name', 'admin')->first();
+        $userRole = Role::where('name', 'user')->first();
 
-        // Assign some permissions to user role
-        $userRole = Role::where('slug', 'user')->first();
-        $userRole->permissions()->attach(
-            Permission::whereIn('slug', ['view-users', 'view-departments', 'view-teams', 'view-roles'])->get()
-        );
-
-        // Create an admin user
         $admin = User::factory()->create([
             'name' => 'Admin User',
             'email' => 'admin@example.com',
+            'role_id' => $adminRole->id,
         ]);
-        $admin->roles()->attach($adminRole);
 
-        // Create sample departments, teams, and users
         Department::factory(3)->create()->each(function ($dept) use ($userRole) {
             Team::factory(2)->create(['department_id' => $dept->id])->each(function ($team) use ($dept, $userRole) {
-                User::factory(5)->create()->each(function ($user) use ($dept, $team, $userRole) {
+                User::factory(5)->create([
+                    'role_id' => $userRole->id,
+                ])->each(function ($user) use ($dept, $team) {
                     $user->departments()->attach($dept);
                     $user->teams()->attach($team);
-                    $user->roles()->attach($userRole);
                 });
             });
         });

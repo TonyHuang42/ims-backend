@@ -17,7 +17,6 @@ class StoreTeamRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'department_id' => ['required', 'exists:departments,id'],
-            'description' => ['nullable', 'string'],
             'is_active' => ['boolean'],
         ];
     }

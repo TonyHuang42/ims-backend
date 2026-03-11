@@ -16,7 +16,7 @@ class UserResource extends JsonResource
             'is_active' => $this->is_active,
             'departments' => DepartmentResource::collection($this->whenLoaded('departments')),
             'teams' => TeamResource::collection($this->whenLoaded('teams')),
-            'roles' => RoleResource::collection($this->whenLoaded('roles')),
+            'role' => $this->whenLoaded('role', fn () => new RoleResource($this->role)),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

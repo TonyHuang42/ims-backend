@@ -24,8 +24,7 @@ class UpdateUserRequest extends FormRequest
             'team_ids' => ['array'],
             'team_ids.*' => ['exists:teams,id'],
             'is_active' => ['boolean'],
-            'role_ids' => ['array'],
-            'role_ids.*' => ['exists:roles,id'],
+            'role_id' => ['nullable', 'exists:roles,id'],
         ];
     }
 }

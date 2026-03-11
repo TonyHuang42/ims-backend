@@ -10,18 +10,16 @@ uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
 
 beforeEach(function () {
     /** @var \Tests\TestCase $this */
-    $this->adminRole = Role::factory()->create(['slug' => 'admin']);
-    $this->userRole = Role::factory()->create(['slug' => 'user']);
+    $this->adminRole = Role::factory()->create(['name' => 'admin']);
+    $this->userRole = Role::factory()->create(['name' => 'user']);
 
-    $this->admin = User::factory()->create();
-    $this->admin->roles()->attach($this->adminRole);
+    $this->admin = User::factory()->create(['role_id' => $this->adminRole->id]);
 
     /** @var \PHPOpenSourceSaver\JWTAuth\JWTGuard $apiGuard */
     $apiGuard = Auth::guard('api');
     $this->adminToken = $apiGuard->tokenById($this->admin->id);
 
-    $this->user = User::factory()->create();
-    $this->user->roles()->attach($this->userRole);
+    $this->user = User::factory()->create(['role_id' => $this->userRole->id]);
     $this->userToken = $apiGuard->tokenById($this->user->id);
 });
 
@@ -45,7 +43,7 @@ test('admin can show user', function () {
 
     $response->assertSuccessful()
         ->assertJsonPath('data.id', $targetUser->id)
-        ->assertJsonStructure(['data' => ['id', 'name', 'email', 'departments', 'teams', 'roles']]);
+        ->assertJsonStructure(['data' => ['id', 'name', 'email', 'departments', 'teams', 'role']]);
 });
 
 test('admin can create user', function () {
@@ -54,7 +52,7 @@ test('admin can create user', function () {
         'name' => 'New User',
         'email' => 'newuser@example.com',
         'password' => 'password123',
-        'role_ids' => [$this->userRole->id],
+        'role_id' => $this->userRole->id,
     ], [
         'Authorization' => "Bearer $this->adminToken",
     ]);
@@ -152,23 +150,6 @@ test('non-admin cannot deactivate user', function () {
     $response->assertForbidden();
 });
 
-test('admin can sync user roles', function () {
-    /** @var \Tests\TestCase $this */
-    $targetUser = User::factory()->create();
-    $newRole = Role::factory()->create();
-
-    $response = $this->postJson("/api/v1/users/{$targetUser->id}/roles", [
-        'role_ids' => [$newRole->id],
-    ], [
-        'Authorization' => "Bearer $this->adminToken",
-    ]);
-
-    $response->assertSuccessful()
-        ->assertJson(['message' => 'Roles synced successfully']);
-
-    $this->assertTrue($targetUser->fresh()->roles->contains($newRole->id));
-});
-
 test('admin can sync user departments', function () {
     /** @var \Tests\TestCase $this */
     $targetUser = User::factory()->create();
@@ -203,20 +184,6 @@ test('admin can sync user teams', function () {
     $this->assertTrue($targetUser->fresh()->teams->contains($team->id));
 });
 
-test('admin can get user roles', function () {
-    /** @var \Tests\TestCase $this */
-    $targetUser = User::factory()->create();
-    $targetUser->roles()->attach($this->userRole);
-
-    $response = $this->getJson("/api/v1/users/{$targetUser->id}/roles", [
-        'Authorization' => "Bearer $this->adminToken",
-    ]);
-
-    $response->assertSuccessful()
-        ->assertJsonCount(1, 'data')
-        ->assertJsonPath('data.0.id', $this->userRole->id);
-});
-
 test('user filtering', function (string $filter, $value, int $expectedCount) {
     /** @var \Tests\TestCase $this */
     $dept = Department::factory()->create();
@@ -225,10 +192,10 @@ test('user filtering', function (string $filter, $value, int $expectedCount) {
 
     $u = User::factory()->create([
         'is_active' => true,
+        'role_id' => $role->id,
     ]);
     $u->departments()->attach($dept);
     $u->teams()->attach($team);
-    $u->roles()->attach($role);
 
     // Filter values might need to be resolved if they are closures
     $val = is_callable($value) ? $value($dept, $team, $role) : $value;
@@ -262,7 +229,7 @@ test('user validation', function (array $data, array $errors) {
         fn () => ['name' => 'Test', 'email' => User::factory()->create()->email, 'password' => 'password123'],
         ['email'],
     ],
-    'invalid role_ids' => [['name' => 'Test', 'email' => 't@e.com', 'password' => 'p123', 'role_ids' => [999]], ['role_ids.0']],
+    'invalid role_id' => [['name' => 'Test', 'email' => 't@e.com', 'password' => 'p123', 'role_id' => 999], ['role_id']],
 ]);
 
 test('admin can create user with multiple departments and teams', function () {
@@ -387,8 +354,6 @@ test('unauthenticated user cannot access user routes', function (string $method,
     'store' => ['POST', '/api/v1/users'],
     'show' => ['GET', '/api/v1/users/1'],
     'update' => ['PUT', '/api/v1/users/1'],
-    'sync-roles' => ['POST', '/api/v1/users/1/roles'],
-    'get-roles' => ['GET', '/api/v1/users/1/roles'],
     'sync-departments' => ['POST', '/api/v1/users/1/departments'],
     'get-departments' => ['GET', '/api/v1/users/1/departments'],
     'sync-teams' => ['POST', '/api/v1/users/1/teams'],

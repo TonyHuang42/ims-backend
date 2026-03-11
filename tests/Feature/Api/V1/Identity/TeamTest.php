@@ -9,9 +9,8 @@ use Illuminate\Support\Facades\Auth;
 uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
 
 beforeEach(function () {
-    $this->adminRole = Role::factory()->create(['slug' => 'admin']);
-    $this->admin = User::factory()->create();
-    $this->admin->roles()->attach($this->adminRole);
+    $this->adminRole = Role::factory()->create(['name' => 'admin']);
+    $this->admin = User::factory()->create(['role_id' => $this->adminRole->id]);
     $this->adminToken = Auth::guard('api')->tokenById($this->admin->id);
 
     $this->user = User::factory()->create();

@@ -23,17 +23,19 @@ test('findUser returns user or null', function () {
     expect($this->service->findUser(999))->toBeNull();
 });
 
-test('getUserRoles returns roles collection', function () {
-    $user = User::factory()->create();
+test('getUserRole returns role or null', function () {
     $role = Role::factory()->create();
-    $user->roles()->attach($role);
+    $user = User::factory()->create(['role_id' => $role->id]);
 
-    $roles = $this->service->getUserRoles($user->id);
+    $fetched = $this->service->getUserRole($user->id);
 
-    expect($roles)->toHaveCount(1)
-        ->first()->id->toBe($role->id);
+    expect($fetched)->not->toBeNull()
+        ->id->toBe($role->id);
 
-    expect($this->service->getUserRoles(999))->toBeEmpty();
+    expect($this->service->getUserRole(999))->toBeNull();
+
+    $userNoRole = User::factory()->create(['role_id' => null]);
+    expect($this->service->getUserRole($userNoRole->id))->toBeNull();
 });
 
 test('getUserDepartments returns departments collection', function () {

@@ -33,27 +33,26 @@ class UserTest extends TestCase
         $this->assertEquals($team->id, $user->fresh()->teams->first()->id);
     }
 
-    public function test_user_has_roles_relationship()
+    public function test_user_has_role_relationship()
     {
-        $user = User::factory()->create();
         $role = Role::factory()->create();
+        $user = User::factory()->create(['role_id' => $role->id]);
 
-        $user->roles()->attach($role);
-
-        $this->assertCount(1, $user->roles);
-        $this->assertEquals($role->id, $user->roles->first()->id);
+        $this->assertNotNull($user->role);
+        $this->assertEquals($role->id, $user->role->id);
     }
 
     public function test_user_can_check_if_is_admin()
     {
         $user = User::factory()->create();
-        $adminRole = Role::factory()->create(['slug' => 'admin']);
+        $adminRole = Role::factory()->create(['name' => 'admin']);
 
         $this->assertFalse($user->isAdmin());
 
-        $user->roles()->attach($adminRole);
+        $user->role_id = $adminRole->id;
+        $user->save();
 
-        $this->assertTrue($user->isAdmin());
+        $this->assertTrue($user->fresh()->isAdmin());
     }
 
     public function test_user_factory_with_identity_state()

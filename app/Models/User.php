@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -24,6 +25,7 @@ class User extends Authenticatable implements JWTSubject
         'email',
         'password',
         'is_active',
+        'role_id',
     ];
 
     /**
@@ -68,7 +70,7 @@ class User extends Authenticatable implements JWTSubject
         return [
             'email' => $this->email,
             'name' => $this->name,
-            'roles' => $this->roles->pluck('slug')->toArray(),
+            'role' => $this->role?->name,
             'departments' => $this->departments->pluck('id')->toArray(),
             'teams' => $this->teams->pluck('id')->toArray(),
         ];
@@ -84,13 +86,13 @@ class User extends Authenticatable implements JWTSubject
         return $this->belongsToMany(Team::class);
     }
 
-    public function roles(): BelongsToMany
+    public function role(): BelongsTo
     {
-        return $this->belongsToMany(Role::class);
+        return $this->belongsTo(Role::class);
     }
 
     public function isAdmin(): bool
     {
-        return $this->roles()->where('slug', 'admin')->exists();
+        return $this->role?->name === 'admin';
     }
 }

@@ -19,7 +19,6 @@ class UpdateDepartmentRequest extends FormRequest
     {
         return [
             'name' => ['sometimes', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
             'is_active' => ['boolean'],
         ];
     }

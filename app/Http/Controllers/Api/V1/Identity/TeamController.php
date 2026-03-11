@@ -8,7 +8,6 @@ use App\Http\Requests\Identity\UpdateTeamRequest;
 use App\Http\Resources\Identity\TeamResource;
 use App\Models\Team;
 use App\Models\User;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Auth;
@@ -21,10 +20,7 @@ class TeamController extends Controller
 
         if ($request->filled('search')) {
             $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                    ->orWhere('description', 'like', "%{$search}%");
-            });
+            $query->where('name', 'like', "%{$search}%");
         }
 
         $perPage = $request->integer('per_page', 15);
@@ -59,6 +55,6 @@ class TeamController extends Controller
             return false;
         }
 
-        return $user->roles()->where('slug', 'admin')->exists();
+        return $user->isAdmin();
     }
 }

@@ -9,14 +9,8 @@ class RoleSeeder extends Seeder
 {
     public function run(): void
     {
-        Role::updateOrCreate(['slug' => 'admin'], [
-            'name' => 'Administrator',
-            'description' => 'System administrator with full access.',
-        ]);
-
-        Role::updateOrCreate(['slug' => 'user'], [
-            'name' => 'Standard User',
-            'description' => 'Standard user with limited access.',
-        ]);
+        Role::updateOrCreate(['name' => 'admin'], ['is_active' => true]);
+        Role::updateOrCreate(['name' => 'manager'], ['is_active' => true]);
+        Role::updateOrCreate(['name' => 'user'], ['is_active' => true]);
     }
 }

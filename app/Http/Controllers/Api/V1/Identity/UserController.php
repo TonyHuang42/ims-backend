@@ -5,11 +5,9 @@ namespace App\Http\Controllers\Api\V1\Identity;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Identity\StoreUserRequest;
 use App\Http\Requests\Identity\SyncUserDepartmentsRequest;
-use App\Http\Requests\Identity\SyncUserRolesRequest;
 use App\Http\Requests\Identity\SyncUserTeamsRequest;
 use App\Http\Requests\Identity\UpdateUserRequest;
 use App\Http\Resources\Identity\DepartmentResource;
-use App\Http\Resources\Identity\RoleResource;
 use App\Http\Resources\Identity\TeamResource;
 use App\Http\Resources\Identity\UserResource;
 use App\Models\User;
@@ -23,7 +21,7 @@ class UserController extends Controller
 {
     public function index(Request $request): AnonymousResourceCollection
     {
-        $query = User::query()->with(['departments', 'teams', 'roles']);
+        $query = User::query()->with(['departments', 'teams', 'role']);
 
         if ($request->has('department_id')) {
             $query->whereHas('departments', function ($q) use ($request) {
@@ -42,9 +40,7 @@ class UserController extends Controller
         }
 
         if ($request->has('role_id')) {
-            $query->whereHas('roles', function ($q) use ($request) {
-                $q->where('roles.id', $request->role_id);
-            });
+            $query->where('role_id', $request->role_id);
         }
 
         if ($request->filled('search')) {
@@ -72,10 +68,6 @@ class UserController extends Controller
 
         $user = User::create($data);
 
-        if ($request->has('role_ids')) {
-            $user->roles()->sync($request->role_ids);
-        }
-
         if ($request->has('department_ids')) {
             $user->departments()->sync($request->department_ids);
         }
@@ -84,14 +76,14 @@ class UserController extends Controller
             $user->teams()->sync($request->team_ids);
         }
 
-        $resource = new UserResource($user->load(['departments', 'teams', 'roles']));
+        $resource = new UserResource($user->load(['departments', 'teams', 'role']));
 
         return response()->json($resource->response()->getData(), 201);
     }
 
     public function show(User $user): UserResource
     {
-        return new UserResource($user->load(['departments', 'teams', 'roles']));
+        return new UserResource($user->load(['departments', 'teams', 'role']));
     }
 
     public function update(UpdateUserRequest $request, User $user): JsonResponse
@@ -108,10 +100,6 @@ class UserController extends Controller
 
         $user->update($data);
 
-        if ($request->has('role_ids')) {
-            $user->roles()->sync($request->role_ids);
-        }
-
         if ($request->has('department_ids')) {
             $user->departments()->sync($request->department_ids);
         }
@@ -120,25 +108,9 @@ class UserController extends Controller
             $user->teams()->sync($request->team_ids);
         }
 
-        $resource = new UserResource($user->load(['departments', 'teams', 'roles']));
+        $resource = new UserResource($user->load(['departments', 'teams', 'role']));
 
         return response()->json($resource->response()->getData(), 200);
-    }
-
-    public function syncRoles(SyncUserRolesRequest $request, User $user): JsonResponse
-    {
-        if (! $this->isAdmin()) {
-            return response()->json(['message' => 'This action is unauthorized.'], 403);
-        }
-
-        $user->roles()->sync($request->role_ids);
-
-        return response()->json(['message' => 'Roles synced successfully']);
-    }
-
-    public function getRoles(User $user): AnonymousResourceCollection
-    {
-        return RoleResource::collection($user->roles);
     }
 
     public function syncDepartments(SyncUserDepartmentsRequest $request, User $user): JsonResponse
@@ -180,6 +152,6 @@ class UserController extends Controller
             return false;
         }
 
-        return $user->roles()->where('slug', 'admin')->exists();
+        return $user->role?->name === 'admin';
     }
 }

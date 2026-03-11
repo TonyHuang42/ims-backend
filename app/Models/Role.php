@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Role extends Model
 {
@@ -12,8 +12,6 @@ class Role extends Model
 
     protected $fillable = [
         'name',
-        'slug',
-        'description',
         'is_active',
     ];
 
@@ -24,13 +22,8 @@ class Role extends Model
         ];
     }
 
-    public function users(): BelongsToMany
+    public function users(): HasMany
     {
-        return $this->belongsToMany(User::class);
-    }
-
-    public function permissions(): BelongsToMany
-    {
-        return $this->belongsToMany(Permission::class);
+        return $this->hasMany(User::class);
     }
 }

@@ -1,6 +1,5 @@
 <?php
 
-use App\Models\Permission;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
@@ -10,14 +9,14 @@ uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
 
 beforeEach(function () {
     /** @var \Tests\TestCase $this */
-    $this->adminRole = Role::factory()->create(['slug' => 'admin']);
-    $this->admin = User::factory()->create();
-    $this->admin->roles()->attach($this->adminRole);
+    $this->adminRole = Role::factory()->create(['name' => 'admin']);
+    $this->userRole = Role::factory()->create(['name' => 'user']);
+    $this->admin = User::factory()->create(['role_id' => $this->adminRole->id]);
     /** @var JWTGuard $apiGuard */
     $apiGuard = Auth::guard('api');
     $this->adminToken = $apiGuard->tokenById($this->admin->id);
 
-    $this->user = User::factory()->create();
+    $this->user = User::factory()->create(['role_id' => $this->userRole->id]);
     $this->userToken = $apiGuard->tokenById($this->user->id);
 });
 
@@ -30,7 +29,7 @@ test('admin can list roles', function () {
     ]);
 
     $response->assertSuccessful()
-        ->assertJsonCount(4, 'data'); // 3 + 1 from beforeEach
+        ->assertJsonCount(5, 'data'); // 3 + admin + user from beforeEach
 });
 
 test('admin can show role', function () {
@@ -48,21 +47,19 @@ test('admin can show role', function () {
 test('admin can create role', function () {
     /** @var \Tests\TestCase $this */
     $response = $this->postJson('/api/v1/roles', [
-        'name' => 'Manager',
-        'slug' => 'manager',
+        'name' => 'manager',
     ], [
         'Authorization' => "Bearer $this->adminToken",
     ]);
 
     $response->assertCreated()
-        ->assertJsonPath('data.slug', 'manager');
+        ->assertJsonPath('data.name', 'manager');
 });
 
 test('non-admin cannot create role', function () {
     /** @var \Tests\TestCase $this */
     $response = $this->postJson('/api/v1/roles', [
-        'name' => 'Manager',
-        'slug' => 'manager',
+        'name' => 'manager',
     ], [
         'Authorization' => "Bearer $this->userToken",
     ]);
@@ -133,76 +130,13 @@ test('role validation', function (array $data, array $errors) {
     $response->assertUnprocessable()
         ->assertJsonValidationErrors($errors);
 })->with([
-    'missing name' => [['slug' => 'test'], ['name']],
-    'missing slug' => [['name' => 'Test'], ['slug']],
-    'duplicate slug' => [
-        fn () => ['name' => 'Admin Duplicate', 'slug' => Role::factory()->create(['slug' => 'admin-duplicate'])->slug],
-        ['slug'],
+    'missing name' => [[], ['name']],
+    'name too long' => [['name' => str_repeat('a', 256)], ['name']],
+    'duplicate name' => [
+        fn () => ['name' => Role::factory()->create(['name' => 'custom-role'])->name],
+        ['name'],
     ],
 ]);
-
-test('admin can create role with permissions', function () {
-    /** @var \Tests\TestCase $this */
-    $permission1 = Permission::factory()->create();
-    $permission2 = Permission::factory()->create();
-
-    $response = $this->postJson('/api/v1/roles', [
-        'name' => 'Manager',
-        'slug' => 'manager',
-        'permission_ids' => [$permission1->id, $permission2->id],
-    ], [
-        'Authorization' => "Bearer $this->adminToken",
-    ]);
-
-    $response->assertCreated()
-        ->assertJsonCount(2, 'data.permissions');
-});
-
-test('admin can sync role permissions', function () {
-    /** @var \Tests\TestCase $this */
-    $role = Role::factory()->create();
-    $permission = Permission::factory()->create();
-
-    $response = $this->postJson("/api/v1/roles/{$role->id}/permissions", [
-        'permission_ids' => [$permission->id],
-    ], [
-        'Authorization' => "Bearer $this->adminToken",
-    ]);
-
-    $response->assertSuccessful()
-        ->assertJson(['message' => 'Permissions synced successfully']);
-
-    $this->assertTrue($role->fresh()->permissions->contains($permission->id));
-});
-
-test('admin can get role permissions', function () {
-    /** @var \Tests\TestCase $this */
-    $role = Role::factory()->create();
-    $permission = Permission::factory()->create();
-    $role->permissions()->attach($permission);
-
-    $response = $this->getJson("/api/v1/roles/{$role->id}/permissions", [
-        'Authorization' => "Bearer $this->adminToken",
-    ]);
-
-    $response->assertSuccessful()
-        ->assertJsonCount(1, 'data')
-        ->assertJsonPath('data.0.id', $permission->id);
-});
-
-test('non-admin cannot sync role permissions', function () {
-    /** @var \Tests\TestCase $this */
-    $role = Role::factory()->create();
-    $permission = Permission::factory()->create();
-
-    $response = $this->postJson("/api/v1/roles/{$role->id}/permissions", [
-        'permission_ids' => [$permission->id],
-    ], [
-        'Authorization' => "Bearer $this->userToken",
-    ]);
-
-    $response->assertForbidden();
-});
 
 test('unauthenticated user cannot access role routes', function (string $method, string $uri) {
     /** @var TestCase $this */
@@ -214,8 +148,6 @@ test('unauthenticated user cannot access role routes', function (string $method,
     'store' => ['POST', '/api/v1/roles'],
     'show' => ['GET', '/api/v1/roles/1'],
     'update' => ['PUT', '/api/v1/roles/1'],
-    'sync-permissions' => ['POST', '/api/v1/roles/1/permissions'],
-    'get-permissions' => ['GET', '/api/v1/roles/1/permissions'],
 ]);
 
 test('show non-existent role returns 404', function () {
