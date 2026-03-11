@@ -12,6 +12,7 @@ class TeamResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
+            'department_id' => $this->department_id,
             'department' => new DepartmentResource($this->whenLoaded('department')),
             'is_active' => $this->is_active,
             'created_at' => $this->created_at,

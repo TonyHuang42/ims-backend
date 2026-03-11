@@ -7,13 +7,16 @@ use App\Http\Requests\Identity\StoreTeamRequest;
 use App\Http\Requests\Identity\UpdateTeamRequest;
 use App\Http\Resources\Identity\TeamResource;
 use App\Models\Team;
-use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
-use Illuminate\Support\Facades\Auth;
 
 class TeamController extends Controller
 {
+    public function __construct()
+    {
+        $this->authorizeResource(Team::class, 'team');
+    }
+
     public function index(Request $request): AnonymousResourceCollection
     {
         $query = Team::query()->with('department');
@@ -46,15 +49,5 @@ class TeamController extends Controller
         $team->update($request->validated());
 
         return new TeamResource($team->load('department'));
-    }
-
-    protected function isAdmin(): bool
-    {
-        $user = Auth::guard('api')->user();
-        if (! $user instanceof User) {
-            return false;
-        }
-
-        return $user->isAdmin();
     }
 }

@@ -5,12 +5,14 @@ use App\Models\Role;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 
 uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
 
 beforeEach(function () {
     /** @var \Tests\TestCase $this */
     $this->adminRole = Role::factory()->create(['name' => 'admin']);
+    $this->managerRole = Role::factory()->create(['name' => 'manager']);
     $this->userRole = Role::factory()->create(['name' => 'user']);
 
     $this->admin = User::factory()->create(['role_id' => $this->adminRole->id]);
@@ -18,6 +20,9 @@ beforeEach(function () {
     /** @var \PHPOpenSourceSaver\JWTAuth\JWTGuard $apiGuard */
     $apiGuard = Auth::guard('api');
     $this->adminToken = $apiGuard->tokenById($this->admin->id);
+
+    $this->manager = User::factory()->create(['role_id' => $this->managerRole->id]);
+    $this->managerToken = $apiGuard->tokenById($this->manager->id);
 
     $this->user = User::factory()->create(['role_id' => $this->userRole->id]);
     $this->userToken = $apiGuard->tokenById($this->user->id);
@@ -33,12 +38,58 @@ test('admin can list users', function () {
         ->assertJsonStructure(['data', 'links', 'meta']);
 });
 
+test('manager can list users', function () {
+    /** @var \Tests\TestCase $this */
+    $response = $this->getJson('/api/v1/users', [
+        'Authorization' => "Bearer $this->managerToken",
+    ]);
+
+    $response->assertSuccessful()
+        ->assertJsonStructure(['data', 'links', 'meta']);
+});
+
+test('user can list users', function () {
+    /** @var \Tests\TestCase $this */
+    $response = $this->getJson('/api/v1/users', [
+        'Authorization' => "Bearer $this->userToken",
+    ]);
+
+    $response->assertSuccessful()
+        ->assertJsonStructure(['data', 'links', 'meta']);
+});
+
 test('admin can show user', function () {
     /** @var \Tests\TestCase $this */
     $targetUser = User::factory()->create();
 
     $response = $this->getJson("/api/v1/users/{$targetUser->id}", [
         'Authorization' => "Bearer $this->adminToken",
+    ]);
+
+    $response->assertSuccessful()
+        ->assertJsonPath('data.id', $targetUser->id)
+        ->assertJsonStructure(['data' => ['id', 'name', 'email', 'departments', 'teams', 'role']]);
+});
+
+test('manager can show user', function () {
+    /** @var \Tests\TestCase $this */
+    $targetUser = User::factory()->create();
+
+    $response = $this->getJson("/api/v1/users/{$targetUser->id}", [
+        'Authorization' => "Bearer $this->managerToken",
+    ]);
+
+    $response->assertSuccessful()
+        ->assertJsonPath('data.id', $targetUser->id)
+        ->assertJsonStructure(['data' => ['id', 'name', 'email', 'departments', 'teams', 'role']]);
+});
+
+test('user can show user', function () {
+    /** @var \Tests\TestCase $this */
+    $targetUser = User::factory()->create();
+
+    $response = $this->getJson("/api/v1/users/{$targetUser->id}", [
+        'Authorization' => "Bearer $this->userToken",
     ]);
 
     $response->assertSuccessful()
@@ -91,6 +142,19 @@ test('non-admin cannot create user', function () {
         'password' => 'password123',
     ], [
         'Authorization' => "Bearer $this->userToken",
+    ]);
+
+    $response->assertForbidden();
+});
+
+test('manager cannot create user', function () {
+    /** @var \Tests\TestCase $this */
+    $response = $this->postJson('/api/v1/users', [
+        'name' => 'New User',
+        'email' => 'newmanageruser@example.com',
+        'password' => 'password123',
+    ], [
+        'Authorization' => "Bearer $this->managerToken",
     ]);
 
     $response->assertForbidden();
@@ -209,9 +273,79 @@ test('user filtering', function (string $filter, $value, int $expectedCount) {
 })->with([
     'by department_id' => ['department_id', fn ($d) => $d->id, 1],
     'by team_id' => ['team_id', fn ($d, $t) => $t->id, 1],
-    'by is_active' => ['is_active', 1, 3], // admin, user, and the new one
+    'by is_active' => ['is_active', 1, 4], // admin, manager, user, and the new one
     'by role_id' => ['role_id', fn ($d, $t, $r) => $r->id, 1],
 ]);
+
+test('user search filter works for name and email', function () {
+    /** @var \Tests\TestCase $this */
+    $searchedUser = User::factory()->create([
+        'name' => 'Alice Example',
+        'email' => 'alice@example.test',
+    ]);
+    $otherUser = User::factory()->create([
+        'name' => 'Bob Other',
+        'email' => 'bob@other.test',
+    ]);
+
+    $response = $this->getJson('/api/v1/users?search=Alice', [
+        'Authorization' => "Bearer $this->adminToken",
+    ]);
+
+    $response->assertSuccessful()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.id', $searchedUser->id);
+
+    $response = $this->getJson('/api/v1/users?search=other.test', [
+        'Authorization' => "Bearer $this->adminToken",
+    ]);
+
+    $response->assertSuccessful()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.id', $otherUser->id);
+});
+
+test('password is hashed when creating user', function () {
+    /** @var \Tests\TestCase $this */
+    $plainPassword = 'plain-password-123';
+
+    $response = $this->postJson('/api/v1/users', [
+        'name' => 'Hashed User',
+        'email' => 'hash-create@example.com',
+        'password' => $plainPassword,
+        'role_id' => $this->userRole->id,
+    ], [
+        'Authorization' => "Bearer $this->adminToken",
+    ]);
+
+    $response->assertCreated();
+
+    $user = User::where('email', 'hash-create@example.com')->first();
+
+    expect($user)->not->toBeNull();
+    expect($user->password)->not->toBe($plainPassword);
+    expect(Hash::check($plainPassword, $user->password))->toBeTrue();
+});
+
+test('password is hashed when updating user', function () {
+    /** @var \Tests\TestCase $this */
+    $targetUser = User::factory()->create([
+        'password' => bcrypt('old-password'),
+    ]);
+    $newPassword = 'new-password-456';
+
+    $response = $this->putJson("/api/v1/users/{$targetUser->id}", [
+        'password' => $newPassword,
+    ], [
+        'Authorization' => "Bearer $this->adminToken",
+    ]);
+
+    $response->assertSuccessful();
+
+    $targetUser->refresh();
+
+    expect(Hash::check($newPassword, $targetUser->password))->toBeTrue();
+});
 
 test('user validation', function (array $data, array $errors) {
     /** @var \Tests\TestCase $this */

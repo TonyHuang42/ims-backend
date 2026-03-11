@@ -7,13 +7,16 @@ use App\Http\Requests\Identity\StoreDepartmentRequest;
 use App\Http\Requests\Identity\UpdateDepartmentRequest;
 use App\Http\Resources\Identity\DepartmentResource;
 use App\Models\Department;
-use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
-use Illuminate\Support\Facades\Auth;
 
 class DepartmentController extends Controller
 {
+    public function __construct()
+    {
+        $this->authorizeResource(Department::class, 'department');
+    }
+
     public function index(Request $request): AnonymousResourceCollection
     {
         $query = Department::query();
@@ -46,15 +49,5 @@ class DepartmentController extends Controller
         $department->update($request->validated());
 
         return new DepartmentResource($department);
-    }
-
-    protected function isAdmin(): bool
-    {
-        $user = Auth::guard('api')->user();
-        if (! $user instanceof User) {
-            return false;
-        }
-
-        return $user->isAdmin();
     }
 }

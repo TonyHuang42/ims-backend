@@ -10,10 +10,16 @@ uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
 
 beforeEach(function () {
     $this->adminRole = Role::factory()->create(['name' => 'admin']);
+    $this->managerRole = Role::factory()->create(['name' => 'manager']);
+    $this->userRole = Role::factory()->create(['name' => 'user']);
+
     $this->admin = User::factory()->create(['role_id' => $this->adminRole->id]);
     $this->adminToken = Auth::guard('api')->tokenById($this->admin->id);
 
-    $this->user = User::factory()->create();
+    $this->manager = User::factory()->create(['role_id' => $this->managerRole->id]);
+    $this->managerToken = Auth::guard('api')->tokenById($this->manager->id);
+
+    $this->user = User::factory()->create(['role_id' => $this->userRole->id]);
     $this->userToken = Auth::guard('api')->tokenById($this->user->id);
 
     $this->department = Department::factory()->create();
@@ -30,11 +36,76 @@ test('admin can list teams', function () {
         ->assertJsonCount(3, 'data');
 });
 
+test('manager can list teams', function () {
+    Team::factory(3)->create(['department_id' => $this->department->id]);
+
+    $response = $this->getJson('/api/v1/teams', [
+        'Authorization' => "Bearer $this->managerToken",
+    ]);
+
+    $response->assertSuccessful()
+        ->assertJsonCount(3, 'data');
+});
+
+test('user can list teams', function () {
+    Team::factory(3)->create(['department_id' => $this->department->id]);
+
+    $response = $this->getJson('/api/v1/teams', [
+        'Authorization' => "Bearer $this->userToken",
+    ]);
+
+    $response->assertSuccessful()
+        ->assertJsonCount(3, 'data');
+});
+
+test('team search filter returns matching teams only', function () {
+    $matchedTeam = Team::factory()->create([
+        'name' => 'Backend Alpha',
+        'department_id' => $this->department->id,
+    ]);
+    Team::factory()->create([
+        'name' => 'Frontend Beta',
+        'department_id' => $this->department->id,
+    ]);
+
+    $response = $this->getJson('/api/v1/teams?search=Backend', [
+        'Authorization' => "Bearer $this->adminToken",
+    ]);
+
+    $response->assertSuccessful()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.id', $matchedTeam->id);
+});
+
 test('admin can show team', function () {
     $team = Team::factory()->create(['department_id' => $this->department->id]);
 
     $response = $this->getJson("/api/v1/teams/{$team->id}", [
         'Authorization' => "Bearer $this->adminToken",
+    ]);
+
+    $response->assertSuccessful()
+        ->assertJsonPath('data.id', $team->id)
+        ->assertJsonStructure(['data' => ['id', 'name', 'department']]);
+});
+
+test('manager can show team', function () {
+    $team = Team::factory()->create(['department_id' => $this->department->id]);
+
+    $response = $this->getJson("/api/v1/teams/{$team->id}", [
+        'Authorization' => "Bearer $this->managerToken",
+    ]);
+
+    $response->assertSuccessful()
+        ->assertJsonPath('data.id', $team->id)
+        ->assertJsonStructure(['data' => ['id', 'name', 'department']]);
+});
+
+test('user can show team', function () {
+    $team = Team::factory()->create(['department_id' => $this->department->id]);
+
+    $response = $this->getJson("/api/v1/teams/{$team->id}", [
+        'Authorization' => "Bearer $this->userToken",
     ]);
 
     $response->assertSuccessful()

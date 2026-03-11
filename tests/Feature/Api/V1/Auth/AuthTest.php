@@ -40,7 +40,7 @@ test('user cannot login with incorrect credentials', function () {
     ]);
 
     $response->assertStatus(401)
-        ->assertJson(['error' => 'Unauthorized']);
+        ->assertJson(['error' => 'Wrong email or password, please try again.']);
 });
 
 test('authenticated user can get their profile', function () {

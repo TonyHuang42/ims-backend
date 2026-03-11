@@ -18,14 +18,14 @@ class AuthController extends Controller
         $credentials = $request->validated();
 
         if (! $token = Auth::guard('api')->attempt($credentials)) {
-            return response()->json(['error' => 'Unauthorized'], 401);
+            return response()->json(['error' => 'Wrong email or password, please try again.'], 401);
         }
 
         $user = Auth::guard('api')->user();
         if (! $user->is_active) {
             Auth::guard('api')->logout();
 
-            return response()->json(['error' => 'Unauthorized'], 401);
+            return response()->json(['error' => 'Your account is inactive. Please contact your administrator.'], 401);
         }
 
         return $this->respondWithToken($token);
