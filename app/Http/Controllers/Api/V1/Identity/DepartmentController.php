@@ -21,6 +21,10 @@ class DepartmentController extends Controller
     {
         $query = Department::query();
 
+        if (! $request->user()->can('viewInactive', Department::class)) {
+            $query->where('is_active', true);
+        }
+
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where('name', 'like', "%{$search}%");
@@ -41,6 +45,8 @@ class DepartmentController extends Controller
 
     public function show(Department $department): DepartmentResource
     {
+        $this->authorize('view', $department);
+
         return new DepartmentResource($department);
     }
 

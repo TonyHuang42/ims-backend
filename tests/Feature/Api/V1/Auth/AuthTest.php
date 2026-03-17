@@ -1,11 +1,12 @@
 <?php
 
 use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
-uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
+uses(RefreshDatabase::class);
 
 test('user can login with correct credentials', function () {
     /** @var TestCase $this */
@@ -171,7 +172,7 @@ test('change password validation', function (array $data, array $errors) {
 
 test('inactive user cannot login', function () {
     /** @var TestCase $this */
-    $user = User::factory()->create([
+    User::factory()->create([
         'email' => 'inactive@example.com',
         'password' => Hash::make('password123'),
         'is_active' => false,
@@ -182,9 +183,6 @@ test('inactive user cannot login', function () {
         'password' => 'password123',
     ]);
 
-    // Note: Standard Laravel/JWT attempt might still issue a token unless we customize the attempt logic
-    // or use a middleware. Let's see if the current implementation handles is_active.
-    // Based on AuthController.php, it just calls attempt().
-    // If it's not handled, this test might fail, which is good for coverage discovery.
-    $response->assertUnauthorized();
+    $response->assertUnauthorized()
+        ->assertJson(['error' => 'Your account is inactive. Please contact your administrator.']);
 });

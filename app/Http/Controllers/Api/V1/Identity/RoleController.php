@@ -22,6 +22,10 @@ class RoleController extends Controller
     {
         $query = Role::query();
 
+        if (! $request->user()->can('viewInactive', Role::class)) {
+            $query->where('is_active', true);
+        }
+
         if ($request->filled('search')) {
             $query->where('name', 'like', '%'.$request->search.'%');
         }
@@ -41,6 +45,8 @@ class RoleController extends Controller
 
     public function show(Role $role): RoleResource
     {
+        $this->authorize('view', $role);
+
         return new RoleResource($role);
     }
 

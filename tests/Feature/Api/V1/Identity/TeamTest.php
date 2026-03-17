@@ -4,9 +4,10 @@ use App\Models\Department;
 use App\Models\Role;
 use App\Models\Team;
 use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
 
-uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
+uses(RefreshDatabase::class);
 
 beforeEach(function () {
     $this->adminRole = Role::factory()->create(['name' => 'admin']);
@@ -26,7 +27,8 @@ beforeEach(function () {
 });
 
 test('admin can list teams', function () {
-    Team::factory(3)->create(['department_id' => $this->department->id]);
+    Team::factory(2)->create(['department_id' => $this->department->id, 'is_active' => true]);
+    Team::factory()->create(['department_id' => $this->department->id, 'is_active' => false]);
 
     $response = $this->getJson('/api/v1/teams', [
         'Authorization' => "Bearer $this->adminToken",
@@ -37,25 +39,27 @@ test('admin can list teams', function () {
 });
 
 test('manager can list teams', function () {
-    Team::factory(3)->create(['department_id' => $this->department->id]);
+    Team::factory(2)->create(['department_id' => $this->department->id, 'is_active' => true]);
+    Team::factory()->create(['department_id' => $this->department->id, 'is_active' => false]);
 
     $response = $this->getJson('/api/v1/teams', [
         'Authorization' => "Bearer $this->managerToken",
     ]);
 
     $response->assertSuccessful()
-        ->assertJsonCount(3, 'data');
+        ->assertJsonCount(2, 'data');
 });
 
 test('user can list teams', function () {
-    Team::factory(3)->create(['department_id' => $this->department->id]);
+    Team::factory(2)->create(['department_id' => $this->department->id, 'is_active' => true]);
+    Team::factory()->create(['department_id' => $this->department->id, 'is_active' => false]);
 
     $response = $this->getJson('/api/v1/teams', [
         'Authorization' => "Bearer $this->userToken",
     ]);
 
     $response->assertSuccessful()
-        ->assertJsonCount(3, 'data');
+        ->assertJsonCount(2, 'data');
 });
 
 test('team search filter returns matching teams only', function () {
@@ -102,7 +106,7 @@ test('manager can show team', function () {
 });
 
 test('user can show team', function () {
-    $team = Team::factory()->create(['department_id' => $this->department->id]);
+    $team = Team::factory()->create(['department_id' => $this->department->id, 'is_active' => true]);
 
     $response = $this->getJson("/api/v1/teams/{$team->id}", [
         'Authorization' => "Bearer $this->userToken",
@@ -111,6 +115,19 @@ test('user can show team', function () {
     $response->assertSuccessful()
         ->assertJsonPath('data.id', $team->id)
         ->assertJsonStructure(['data' => ['id', 'name', 'department']]);
+});
+
+test('non-admin cannot show inactive team', function () {
+    $team = Team::factory()->create([
+        'department_id' => $this->department->id,
+        'is_active' => false,
+    ]);
+
+    $response = $this->getJson("/api/v1/teams/{$team->id}", [
+        'Authorization' => "Bearer $this->userToken",
+    ]);
+
+    $response->assertForbidden();
 });
 
 test('admin can create team', function () {

@@ -21,6 +21,10 @@ class TeamController extends Controller
     {
         $query = Team::query()->with('department');
 
+        if (! $request->user()->can('viewInactive', Team::class)) {
+            $query->where('is_active', true);
+        }
+
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where('name', 'like', "%{$search}%");
@@ -41,6 +45,8 @@ class TeamController extends Controller
 
     public function show(Team $team): TeamResource
     {
+        $this->authorize('view', $team);
+
         return new TeamResource($team->load('department'));
     }
 

@@ -27,6 +27,10 @@ class UserController extends Controller
     {
         $query = User::query()->with(['departments', 'teams', 'role']);
 
+        if (! $request->user()->can('viewInactive', User::class)) {
+            $query->where('is_active', true);
+        }
+
         if ($request->has('department_id')) {
             $query->whereHas('departments', function ($q) use ($request) {
                 $q->where('departments.id', $request->department_id);
@@ -83,6 +87,8 @@ class UserController extends Controller
 
     public function show(User $user): UserResource
     {
+        $this->authorize('view', $user);
+
         return new UserResource($user->load(['departments', 'teams', 'role']));
     }
 

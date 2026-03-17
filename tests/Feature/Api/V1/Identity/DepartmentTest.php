@@ -3,9 +3,10 @@
 use App\Models\Department;
 use App\Models\Role;
 use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
 
-uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
+uses(RefreshDatabase::class);
 
 beforeEach(function () {
     $this->adminRole = Role::factory()->create(['name' => 'admin']);
@@ -23,7 +24,8 @@ beforeEach(function () {
 });
 
 test('admin can list departments', function () {
-    Department::factory(3)->create();
+    Department::factory(2)->create(['is_active' => true]);
+    Department::factory()->create(['is_active' => false]);
 
     $response = $this->getJson('/api/v1/departments', [
         'Authorization' => "Bearer $this->adminToken",
@@ -34,25 +36,27 @@ test('admin can list departments', function () {
 });
 
 test('manager can list departments', function () {
-    Department::factory(3)->create();
+    Department::factory(2)->create(['is_active' => true]);
+    Department::factory()->create(['is_active' => false]);
 
     $response = $this->getJson('/api/v1/departments', [
         'Authorization' => "Bearer $this->managerToken",
     ]);
 
     $response->assertSuccessful()
-        ->assertJsonCount(3, 'data');
+        ->assertJsonCount(2, 'data');
 });
 
 test('user can list departments', function () {
-    Department::factory(3)->create();
+    Department::factory(2)->create(['is_active' => true]);
+    Department::factory()->create(['is_active' => false]);
 
     $response = $this->getJson('/api/v1/departments', [
         'Authorization' => "Bearer $this->userToken",
     ]);
 
     $response->assertSuccessful()
-        ->assertJsonCount(3, 'data');
+        ->assertJsonCount(2, 'data');
 });
 
 test('department search filter returns matching departments only', function () {
@@ -91,7 +95,7 @@ test('manager can show department', function () {
 });
 
 test('user can show department', function () {
-    $dept = Department::factory()->create();
+    $dept = Department::factory()->create(['is_active' => true]);
 
     $response = $this->getJson("/api/v1/departments/{$dept->id}", [
         'Authorization' => "Bearer $this->userToken",
@@ -99,6 +103,16 @@ test('user can show department', function () {
 
     $response->assertSuccessful()
         ->assertJsonPath('data.id', $dept->id);
+});
+
+test('non-admin cannot show inactive department', function () {
+    $dept = Department::factory()->create(['is_active' => false]);
+
+    $response = $this->getJson("/api/v1/departments/{$dept->id}", [
+        'Authorization' => "Bearer $this->userToken",
+    ]);
+
+    $response->assertForbidden();
 });
 
 test('admin can create department', function () {

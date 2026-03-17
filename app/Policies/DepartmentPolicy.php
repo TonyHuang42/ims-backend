@@ -14,7 +14,16 @@ class DepartmentPolicy
 
     public function view(User $user, Department $department): bool
     {
-        return true;
+        if ($user->isAdmin()) {
+            return true;
+        }
+
+        return $department->is_active;
+    }
+
+    public function viewInactive(User $user): bool
+    {
+        return $user->isAdmin();
     }
 
     public function create(User $user): bool

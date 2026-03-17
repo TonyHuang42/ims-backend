@@ -13,7 +13,16 @@ class UserPolicy
 
     public function view(User $user, User $model): bool
     {
-        return true;
+        if ($user->isAdmin()) {
+            return true;
+        }
+
+        return $model->is_active;
+    }
+
+    public function viewInactive(User $user): bool
+    {
+        return $user->isAdmin();
     }
 
     public function create(User $user): bool

@@ -10,6 +10,7 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use PHPOpenSourceSaver\JWTAuth\JWTGuard;
 
 class AuthController extends Controller
 {
@@ -51,7 +52,7 @@ class AuthController extends Controller
 
     public function refresh(): JsonResponse
     {
-        /** @var \PHPOpenSourceSaver\JWTAuth\JWTGuard $guard */
+        /** @var JWTGuard $guard */
         $guard = Auth::guard('api');
 
         return $this->respondWithToken($guard->refresh());
@@ -73,7 +74,7 @@ class AuthController extends Controller
 
     protected function respondWithToken(string $token): JsonResponse
     {
-        /** @var \PHPOpenSourceSaver\JWTAuth\JWTGuard $guard */
+        /** @var JWTGuard $guard */
         $guard = Auth::guard('api');
 
         return response()->json([

@@ -3,10 +3,12 @@
 namespace App\Providers;
 
 use App\Models\Department;
+use App\Models\FormTemplate;
 use App\Models\Role;
 use App\Models\Team;
 use App\Models\User;
 use App\Policies\DepartmentPolicy;
+use App\Policies\FormTemplatePolicy;
 use App\Policies\RolePolicy;
 use App\Policies\TeamPolicy;
 use App\Policies\UserPolicy;
@@ -34,5 +36,6 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Department::class, DepartmentPolicy::class);
         Gate::policy(Role::class, RolePolicy::class);
         Gate::policy(Team::class, TeamPolicy::class);
+        Gate::policy(FormTemplate::class, FormTemplatePolicy::class);
     }
 }

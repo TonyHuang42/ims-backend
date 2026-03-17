@@ -2,13 +2,14 @@
 
 use App\Models\Role;
 use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
 use PHPOpenSourceSaver\JWTAuth\JWTGuard;
 
-uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
+uses(RefreshDatabase::class);
 
 beforeEach(function () {
-    /** @var \Tests\TestCase $this */
+    /** @var Tests\TestCase $this */
     $this->adminRole = Role::factory()->create(['name' => 'admin']);
     $this->managerRole = Role::factory()->create(['name' => 'manager']);
     $this->userRole = Role::factory()->create(['name' => 'user']);
@@ -25,43 +26,46 @@ beforeEach(function () {
 });
 
 test('admin can list roles', function () {
-    /** @var \Tests\TestCase $this */
-    Role::factory(3)->create();
+    /** @var Tests\TestCase $this */
+    Role::factory(2)->create(['is_active' => true]);
+    Role::factory()->create(['is_active' => false]);
 
     $response = $this->getJson('/api/v1/roles', [
         'Authorization' => "Bearer $this->adminToken",
     ]);
 
     $response->assertSuccessful()
-        ->assertJsonCount(6, 'data'); // 3 + admin + manager + user from beforeEach
+        ->assertJsonCount(6, 'data'); // 4 active + 2 default (admin, manager, user are 3 total; one already created)
 });
 
 test('manager can list roles', function () {
-    /** @var \Tests\TestCase $this */
-    Role::factory(3)->create();
+    /** @var Tests\TestCase $this */
+    Role::factory(2)->create(['is_active' => true]);
+    Role::factory()->create(['is_active' => false]);
 
     $response = $this->getJson('/api/v1/roles', [
         'Authorization' => "Bearer $this->managerToken",
     ]);
 
     $response->assertSuccessful()
-        ->assertJsonStructure(['data', 'links', 'meta']);
+        ->assertJsonCount(5, 'data'); // 4 active + 1 default (manager)
 });
 
 test('user can list roles', function () {
-    /** @var \Tests\TestCase $this */
-    Role::factory(3)->create();
+    /** @var Tests\TestCase $this */
+    Role::factory(2)->create(['is_active' => true]);
+    Role::factory()->create(['is_active' => false]);
 
     $response = $this->getJson('/api/v1/roles', [
         'Authorization' => "Bearer $this->userToken",
     ]);
 
     $response->assertSuccessful()
-        ->assertJsonStructure(['data', 'links', 'meta']);
+        ->assertJsonCount(5, 'data'); // 4 active + 1 default (user)
 });
 
 test('role search filter returns matching roles only', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var Tests\TestCase $this */
     $matchedRole = Role::factory()->create(['name' => 'search-role-matched']);
     Role::factory()->create(['name' => 'other-role']);
 
@@ -75,7 +79,7 @@ test('role search filter returns matching roles only', function () {
 });
 
 test('admin can show role', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var Tests\TestCase $this */
     $role = Role::factory()->create();
 
     $response = $this->getJson("/api/v1/roles/{$role->id}", [
@@ -87,7 +91,7 @@ test('admin can show role', function () {
 });
 
 test('manager can show role', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var Tests\TestCase $this */
     $role = Role::factory()->create();
 
     $response = $this->getJson("/api/v1/roles/{$role->id}", [
@@ -99,8 +103,8 @@ test('manager can show role', function () {
 });
 
 test('user can show role', function () {
-    /** @var \Tests\TestCase $this */
-    $role = Role::factory()->create();
+    /** @var Tests\TestCase $this */
+    $role = Role::factory()->create(['is_active' => true]);
 
     $response = $this->getJson("/api/v1/roles/{$role->id}", [
         'Authorization' => "Bearer $this->userToken",
@@ -110,8 +114,19 @@ test('user can show role', function () {
         ->assertJsonPath('data.id', $role->id);
 });
 
+test('non-admin cannot show inactive role', function () {
+    /** @var Tests\TestCase $this */
+    $role = Role::factory()->create(['is_active' => false]);
+
+    $response = $this->getJson("/api/v1/roles/{$role->id}", [
+        'Authorization' => "Bearer $this->userToken",
+    ]);
+
+    $response->assertForbidden();
+});
+
 test('admin can create role', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var Tests\TestCase $this */
     $response = $this->postJson('/api/v1/roles', [
         'name' => 'custom-manager',
     ], [
@@ -123,7 +138,7 @@ test('admin can create role', function () {
 });
 
 test('non-admin cannot create role', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var Tests\TestCase $this */
     $response = $this->postJson('/api/v1/roles', [
         'name' => 'manager',
     ], [
@@ -134,7 +149,7 @@ test('non-admin cannot create role', function () {
 });
 
 test('admin can update role', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var Tests\TestCase $this */
     $role = Role::factory()->create();
 
     $response = $this->putJson("/api/v1/roles/{$role->id}", [
@@ -148,7 +163,7 @@ test('admin can update role', function () {
 });
 
 test('non-admin cannot update role', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var Tests\TestCase $this */
     $role = Role::factory()->create();
 
     $response = $this->putJson("/api/v1/roles/{$role->id}", [
@@ -161,7 +176,7 @@ test('non-admin cannot update role', function () {
 });
 
 test('admin can deactivate role', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var Tests\TestCase $this */
     $role = Role::factory()->create(['is_active' => true]);
 
     $response = $this->putJson("/api/v1/roles/{$role->id}", [
@@ -175,7 +190,7 @@ test('admin can deactivate role', function () {
 });
 
 test('non-admin cannot deactivate role', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var Tests\TestCase $this */
     $role = Role::factory()->create(['is_active' => true]);
 
     $response = $this->putJson("/api/v1/roles/{$role->id}", [
@@ -217,7 +232,7 @@ test('unauthenticated user cannot access role routes', function (string $method,
 ]);
 
 test('show non-existent role returns 404', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var Tests\TestCase $this */
     $response = $this->getJson('/api/v1/roles/999', [
         'Authorization' => "Bearer $this->adminToken",
     ]);

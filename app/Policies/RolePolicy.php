@@ -14,7 +14,16 @@ class RolePolicy
 
     public function view(User $user, Role $role): bool
     {
-        return true;
+        if ($user->isAdmin()) {
+            return true;
+        }
+
+        return $role->is_active;
+    }
+
+    public function viewInactive(User $user): bool
+    {
+        return $user->isAdmin();
     }
 
     public function create(User $user): bool

@@ -14,7 +14,16 @@ class TeamPolicy
 
     public function view(User $user, Team $team): bool
     {
-        return true;
+        if ($user->isAdmin()) {
+            return true;
+        }
+
+        return $team->is_active;
+    }
+
+    public function viewInactive(User $user): bool
+    {
+        return $user->isAdmin();
     }
 
     public function create(User $user): bool
