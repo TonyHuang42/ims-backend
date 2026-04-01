@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('form_templates', function (Blueprint $blueprint) {
             $blueprint->id();
-            $blueprint->string('name');
+            $blueprint->string('name')->unique();
             $blueprint->json('json_schema');
             $blueprint->json('ui_schema');
             $blueprint->boolean('is_active')->default(true);

@@ -120,6 +120,50 @@ test('form template validation', function (array $data, array $errors) {
     'invalid ui_schema type' => [['name' => 'Test', 'json_schema' => [], 'ui_schema' => 'not-an-array'], ['ui_schema']],
 ]);
 
+test('form template name must be unique on creation', function () {
+    FormTemplate::factory()->create(['name' => 'Existing Form']);
+
+    $response = $this->postJson('/api/v1/form-templates', [
+        'name' => 'Existing Form',
+        'json_schema' => ['type' => 'object'],
+        'ui_schema' => [],
+    ], [
+        'Authorization' => "Bearer $this->token",
+    ]);
+
+    $response->assertUnprocessable()
+        ->assertJsonValidationErrors(['name']);
+});
+
+test('form template name must be unique on update', function () {
+    FormTemplate::factory()->create(['name' => 'Existing Form']);
+    $template = FormTemplate::factory()->create(['name' => 'Another Form']);
+
+    $response = $this->putJson("/api/v1/form-templates/{$template->id}", [
+        'name' => 'Existing Form',
+    ], [
+        'Authorization' => "Bearer $this->token",
+    ]);
+
+    $response->assertUnprocessable()
+        ->assertJsonValidationErrors(['name']);
+});
+
+test('form template name can be updated to same name', function () {
+    $template = FormTemplate::factory()->create(['name' => 'My Form']);
+
+    $response = $this->putJson("/api/v1/form-templates/{$template->id}", [
+        'name' => 'My Form',
+        'is_active' => false,
+    ], [
+        'Authorization' => "Bearer $this->token",
+    ]);
+
+    $response->assertSuccessful()
+        ->assertJsonPath('data.name', 'My Form')
+        ->assertJsonPath('data.is_active', false);
+});
+
 test('unauthenticated user cannot access form template routes', function (string $method, string $uri) {
     $response = $this->json($method, $uri);
 

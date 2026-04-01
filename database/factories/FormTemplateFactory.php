@@ -19,7 +19,7 @@ class FormTemplateFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => fake()->words(3, true).' Form',
+            'name' => fake()->unique()->words(3, true).' Form',
             'json_schema' => [
                 'type' => 'object',
                 'properties' => [
