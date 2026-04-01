@@ -14,7 +14,8 @@ return new class extends Migration
         Schema::create('form_templates', function (Blueprint $blueprint) {
             $blueprint->id();
             $blueprint->string('name');
-            $blueprint->json('schema');
+            $blueprint->json('json_schema');
+            $blueprint->json('ui_schema');
             $blueprint->boolean('is_active')->default(true);
             $blueprint->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $blueprint->timestamps();

@@ -24,7 +24,8 @@ class StoreFormTemplateRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'schema' => ['required', 'array'],
+            'json_schema' => ['required', 'array'],
+            'ui_schema' => ['present', 'array'],
             'is_active' => ['sometimes', 'boolean'],
         ];
     }

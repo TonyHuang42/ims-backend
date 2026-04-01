@@ -24,7 +24,8 @@ class UpdateFormTemplateRequest extends FormRequest
     {
         return [
             'name' => ['sometimes', 'string', 'max:255'],
-            'schema' => ['sometimes', 'array'],
+            'json_schema' => ['sometimes', 'array'],
+            'ui_schema' => ['sometimes', 'array'],
             'is_active' => ['sometimes', 'boolean'],
         ];
     }

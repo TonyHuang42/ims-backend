@@ -258,6 +258,7 @@ test('show form submission returns template and current version', function () {
     ]);
 
     $response->assertSuccessful()
+        ->assertJsonPath('data.template.id', $template->id)
         ->assertJsonPath('data.template.name', 'Test Template')
         ->assertJsonPath('data.current_version.version_number', 1)
         ->assertJsonPath('data.current_version.content.answer', 'foo');

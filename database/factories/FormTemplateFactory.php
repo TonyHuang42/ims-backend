@@ -20,13 +20,14 @@ class FormTemplateFactory extends Factory
     {
         return [
             'name' => fake()->words(3, true).' Form',
-            'schema' => [
+            'json_schema' => [
                 'type' => 'object',
                 'properties' => [
                     'first_name' => ['type' => 'string'],
                     'last_name' => ['type' => 'string'],
                 ],
             ],
+            'ui_schema' => [],
             'is_active' => true,
             'created_by' => User::factory(),
         ];
